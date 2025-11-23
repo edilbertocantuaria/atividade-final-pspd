@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: a-deploy
+  namespace: pspd
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: a } }
+  template:
+    metadata: 
+      labels: 
+        app: a
+        version: v1
+    spec:
+      containers:
+        - name: a
+          image: a-service:local
+          imagePullPolicy: IfNotPresent
+          ports: 
+            - { containerPort: 50051, name: grpc }
+            - { containerPort: 9101, name: metrics }
+          env:
+            - { name: PORT, value: "50051" }
+            - { name: METRICS_PORT, value: "9101" }
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          readinessProbe: { tcpSocket: { port: 50051 }, initialDelaySeconds: 2, periodSeconds: 5 }
+          livenessProbe:  { tcpSocket: { port: 50051 }, initialDelaySeconds: 5, periodSeconds: 10 }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: a-svc
+  namespace: pspd
+  labels:
+    app: a
+spec:
+  selector: { app: a }
+  ports: 
+    - { port: 50051, targetPort: 50051, name: grpc }
+    - { port: 9101, targetPort: 9101, name: metrics }

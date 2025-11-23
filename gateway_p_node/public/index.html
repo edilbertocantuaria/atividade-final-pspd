@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+  <head><meta charset="utf-8"><title>PSPD gRPC Gateway</title></head>
+  <body style="font-family:system-ui;margin:2rem">
+    <h1>PSPD · HTTP → gRPC</h1>
+    <div style="border:1px solid #333;padding:1rem;border-radius:12px;margin-bottom:1rem">
+      <h2>Service A · unary</h2>
+      <input id="name" placeholder="Seu nome" />
+      <button onclick="hello()">Chamar /a/hello</button>
+      <pre id="outA"></pre>
+    </div>
+    <div style="border:1px solid #333;padding:1rem;border-radius:12px">
+      <h2>Service B · server-stream</h2>
+      <input id="count" type="number" value="5" />
+      <input id="delay" type="number" value="0" />
+      <button onclick="nums()">Chamar /b/numbers</button>
+      <pre id="outB"></pre>
+    </div>
+    <script>
+      async function hello() {
+        const name = document.getElementById('name').value || 'mundo';
+        const r = await fetch(`/a/hello?name=${encodeURIComponent(name)}`); 
+        document.getElementById('outA').textContent = JSON.stringify(await r.json(), null, 2);
+      }
+      async function nums() {
+        const count = document.getElementById('count').value || 5;
+        const delay_ms = document.getElementById('delay').value || 0;
+        const r = await fetch(`/b/numbers?count=${count}&delay_ms=${delay_ms}`);
+        document.getElementById('outB').textContent = JSON.stringify(await r.json(), null, 2);
+      }
+    </script>
+  </body>
+</html>

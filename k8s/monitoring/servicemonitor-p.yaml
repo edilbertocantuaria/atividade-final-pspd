@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: gateway-p-metrics
+  namespace: monitoring
+  labels:
+    app: p
+spec:
+  selector:
+    matchLabels:
+      app: p
+  namespaceSelector:
+    matchNames:
+      - pspd
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s

@@ -1,0 +1,39 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: service-a-metrics
+  namespace: monitoring
+  labels:
+    app: a
+spec:
+  selector:
+    matchLabels:
+      app: a
+  namespaceSelector:
+    matchNames:
+      - pspd
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: service-b-metrics
+  namespace: monitoring
+  labels:
+    app: b
+spec:
+  selector:
+    matchLabels:
+      app: b
+  namespaceSelector:
+    matchNames:
+      - pspd
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s

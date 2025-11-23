@@ -1,0 +1,14 @@
+{
+  "name": "gateway-p-node",
+  "version": "1.0.0",
+  "main": "server.js",
+  "type": "module",
+  "dependencies": {
+    "@grpc/grpc-js": "^1.11.3",
+    "@grpc/proto-loader": "^0.7.13",
+    "express": "^4.19.2",
+    "morgan": "^1.10.0",
+    "cors": "^2.8.5",
+    "prom-client": "^15.1.0"
+  }
+}

@@ -1,0 +1,88 @@
+══════════════════════════════════════════════════════════════════════
+  RELATÓRIO DE ANÁLISE - TESTES DE OBSERVABILIDADE K8S
+══════════════════════════════════════════════════════════════════════
+
+
+──────────────────────────────────────────────────────────────────────
+  BASELINE
+──────────────────────────────────────────────────────────────────────
+
+📊 Métricas de Performance (k6):
+  • Throughput: 146.79 req/s
+  • Total de requisições: 13,678
+  • Latência média: 8.33 ms
+  • Latência p95: 20.61 ms
+  • Taxa de sucesso: 100.00%
+  • Taxa de falha: 0.00%
+  • VUs máximos: 10
+  • Iterações: 6,839
+
+💻 Uso de Recursos:
+  • service-a:
+      CPU: 48m
+      Memory: 36Mi
+  • service-b:
+      CPU: 41m
+      Memory: 28Mi
+  • gateway-p:
+      CPU: 143m
+      Memory: 27Mi
+
+──────────────────────────────────────────────────────────────────────
+  RAMP
+──────────────────────────────────────────────────────────────────────
+
+📊 Métricas de Performance (k6):
+  • Throughput: 129.22 req/s
+  • Total de requisições: 29,282
+  • Latência média: 295.39 ms
+  • Latência p95: 1.10 ms
+  • Taxa de sucesso: 100.00%
+  • Taxa de falha: 0.00%
+  • VUs máximos: 150
+  • Iterações: 14,641
+
+💻 Uso de Recursos:
+  • service-a:
+      CPU: 57m
+      Memory: 37Mi
+  • service-b:
+      CPU: 104m
+      Memory: 29Mi
+  • gateway-p:
+      CPU: 92m
+      Memory: 22Mi
+
+──────────────────────────────────────────────────────────────────────
+  SOAK
+──────────────────────────────────────────────────────────────────────
+
+
+──────────────────────────────────────────────────────────────────────
+  SPIKE
+──────────────────────────────────────────────────────────────────────
+
+📊 Métricas de Performance (k6):
+  • Throughput: 377.02 req/s
+  • Total de requisições: 25,108
+  • Latência média: 627.59 ms
+  • Latência p95: 804.30 ms
+  • Taxa de sucesso: 0.00%
+  • Taxa de falha: 18.99%
+  • VUs máximos: 200
+  • Iterações: 12,554
+
+💻 Uso de Recursos:
+  • service-a:
+      CPU: 16m
+      Memory: 36Mi
+  • service-b:
+      CPU: 15m
+      Memory: 28Mi
+  • gateway-p:
+      CPU: 26m
+      Memory: 23Mi
+
+══════════════════════════════════════════════════════════════════════
+  FIM DO RELATÓRIO
+══════════════════════════════════════════════════════════════════════

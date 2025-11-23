@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: b-rest-deploy
+  namespace: pspd
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: b-rest } }
+  template:
+    metadata: { labels: { app: b-rest } }
+    spec:
+      containers:
+        - name: b-rest
+          image: b-rest-service:local
+          imagePullPolicy: IfNotPresent
+          ports: [ { containerPort: 8000 } ]
+          readinessProbe: { httpGet: { path: /b/numbers, port: 8000 }, initialDelaySeconds: 3, periodSeconds: 5, failureThreshold: 10 }
+          livenessProbe:  { httpGet: { path: /b/numbers, port: 8000 }, initialDelaySeconds: 5, periodSeconds: 10, failureThreshold: 10 }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: b-rest-svc
+  namespace: pspd
+spec:
+  selector: { app: b-rest }
+  ports: [ { port: 50062, targetPort: 8000 } ]

@@ -1,0 +1,15 @@
+NAME                        CPU(cores)   MEMORY(bytes)   
+a-deploy-766ffc4fc9-h5c66   72m          47Mi            
+a-deploy-766ffc4fc9-r598l   3m           27Mi            
+b-deploy-5b5c9d8466-5pbfj   2m           28Mi            
+b-deploy-5b5c9d8466-5xtc7   2m           26Mi            
+b-deploy-5b5c9d8466-frvd9   2m           28Mi            
+b-deploy-5b5c9d8466-rj98d   3m           27Mi            
+b-deploy-5b5c9d8466-zmwd8   334m         35Mi            
+p-deploy-6679b7fdc6-2ms2d   11m          17Mi            
+p-deploy-6679b7fdc6-5xdx2   11m          24Mi            
+p-deploy-6679b7fdc6-8g4r2   11m          17Mi            
+p-deploy-6679b7fdc6-f7g2f   10m          18Mi            
+p-deploy-6679b7fdc6-j4zc7   10m          18Mi            
+p-deploy-6679b7fdc6-p5zng   12m          18Mi            
+p-deploy-6679b7fdc6-sml7z   352m         30Mi            
