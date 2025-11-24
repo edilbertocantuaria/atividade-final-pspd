@@ -124,12 +124,17 @@ run_all_tests() {
     
     # Soak (opcional)
     echo ""
-    read -p "Executar teste soak (11+ minutos)? [y/N] " -n 1 -r
+    read -t 30 -p "Executar teste soak (11+ minutos)? [y/N] (auto-skip em 30s) " -n 1 -r
+    RESULT=$?
     echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
+    if [ $RESULT -eq 0 ] && [[ $REPLY =~ ^[Yy]$ ]]; then
         run_test "soak"
     else
-        echo "⏭️  Pulando teste soak"
+        if [ $RESULT -gt 128 ]; then
+            echo "⏱️  Timeout - pulando teste soak"
+        else
+            echo "⏭️  Pulando teste soak"
+        fi
     fi
     
     # Capturar estado final
