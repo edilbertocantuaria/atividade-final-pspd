@@ -1,14 +1,12 @@
-NAME                        READY   STATUS        RESTARTS     AGE     IP            NODE       NOMINATED NODE   READINESS GATES
-a-deploy-766ffc4fc9-h5c66   1/1     Running       0            81m     10.244.0.7    minikube   <none>           <none>
-a-deploy-766ffc4fc9-r598l   1/1     Running       0            6m29s   10.244.0.26   minikube   <none>           <none>
-b-deploy-5b5c9d8466-5pbfj   1/1     Running       0            3m39s   10.244.0.30   minikube   <none>           <none>
-b-deploy-5b5c9d8466-5xtc7   1/1     Running       0            15m     10.244.0.11   minikube   <none>           <none>
-b-deploy-5b5c9d8466-frvd9   1/1     Running       0            3m39s   10.244.0.31   minikube   <none>           <none>
-b-deploy-5b5c9d8466-rj98d   1/1     Running       0            13m     10.244.0.16   minikube   <none>           <none>
-b-deploy-5b5c9d8466-zmwd8   1/1     Running       0            81m     10.244.0.8    minikube   <none>           <none>
-p-deploy-6679b7fdc6-2ms2d   1/1     Terminating   0            3m39s   10.244.0.32   minikube   <none>           <none>
-p-deploy-6679b7fdc6-5xdx2   1/1     Running       0            7m25s   10.244.0.25   minikube   <none>           <none>
-p-deploy-6679b7fdc6-f7g2f   1/1     Running       0            7m25s   10.244.0.24   minikube   <none>           <none>
-p-deploy-6679b7fdc6-j4zc7   1/1     Terminating   0            3m39s   10.244.0.33   minikube   <none>           <none>
-p-deploy-6679b7fdc6-p5zng   1/1     Running       0            3m39s   10.244.0.34   minikube   <none>           <none>
-p-deploy-6679b7fdc6-sml7z   0/1     Terminating   1 (3s ago)   81m     10.244.0.9    minikube   <none>           <none>
+NAME                        READY   STATUS        RESTARTS   AGE    IP            NODE       NOMINATED NODE   READINESS GATES
+a-deploy-766ffc4fc9-8kvz6   1/1     Running       0          3m     10.244.0.61   minikube   <none>           <none>
+a-deploy-766ffc4fc9-h5c66   1/1     Running       0          3h6m   10.244.0.7    minikube   <none>           <none>
+b-deploy-5b5c9d8466-2gx6n   1/1     Running       0          11m    10.244.0.55   minikube   <none>           <none>
+b-deploy-5b5c9d8466-5rrtp   1/1     Running       0          14m    10.244.0.50   minikube   <none>           <none>
+b-deploy-5b5c9d8466-7cmxt   1/1     Running       0          11m    10.244.0.56   minikube   <none>           <none>
+b-deploy-5b5c9d8466-8fznw   1/1     Running       0          14m    10.244.0.49   minikube   <none>           <none>
+b-deploy-5b5c9d8466-zmwd8   1/1     Running       0          3h6m   10.244.0.8    minikube   <none>           <none>
+p-deploy-6679b7fdc6-64b4h   1/1     Running       0          14m    10.244.0.51   minikube   <none>           <none>
+p-deploy-6679b7fdc6-lgjgf   1/1     Terminating   0          69m    10.244.0.38   minikube   <none>           <none>
+p-deploy-6679b7fdc6-lr7g7   1/1     Terminating   0          11m    10.244.0.58   minikube   <none>           <none>
+p-deploy-6679b7fdc6-t6h98   1/1     Running       0          11m    10.244.0.59   minikube   <none>           <none>

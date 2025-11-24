@@ -1,30 +1,30 @@
-3m37s       Normal    Started                        pod/p-deploy-6679b7fdc6-2ms2d    Started container p
-3m37s       Normal    Created                        pod/p-deploy-6679b7fdc6-j4zc7    Created container: p
-3m37s       Normal    Started                        pod/b-deploy-5b5c9d8466-frvd9    Started container b
-3m37s       Normal    Created                        pod/p-deploy-6679b7fdc6-p5zng    Created container: p
-3m37s       Normal    Pulled                         pod/p-deploy-6679b7fdc6-p5zng    Container image "p-gateway:local" already present on machine
-3m37s       Normal    Created                        pod/b-deploy-5b5c9d8466-frvd9    Created container: b
-3m37s       Normal    Pulled                         pod/p-deploy-6679b7fdc6-2ms2d    Container image "p-gateway:local" already present on machine
-3m37s       Normal    Started                        pod/p-deploy-6679b7fdc6-j4zc7    Started container p
-3m37s       Normal    Pulled                         pod/p-deploy-6679b7fdc6-j4zc7    Container image "p-gateway:local" already present on machine
-3m37s       Normal    Started                        pod/p-deploy-6679b7fdc6-p5zng    Started container p
-3m35s       Warning   Unhealthy                      pod/b-deploy-5b5c9d8466-5pbfj    Readiness probe failed: dial tcp 10.244.0.30:50052: connect: connection refused
-3m35s       Warning   Unhealthy                      pod/b-deploy-5b5c9d8466-frvd9    Readiness probe failed: dial tcp 10.244.0.31:50052: connect: connection refused
-3m24s       Normal    Scheduled                      pod/p-deploy-6679b7fdc6-8g4r2    Successfully assigned pspd/p-deploy-6679b7fdc6-8g4r2 to minikube
-3m23s       Normal    Created                        pod/p-deploy-6679b7fdc6-8g4r2    Created container: p
-3m23s       Normal    Pulled                         pod/p-deploy-6679b7fdc6-8g4r2    Container image "p-gateway:local" already present on machine
-3m22s       Normal    Started                        pod/p-deploy-6679b7fdc6-8g4r2    Started container p
-62s         Normal    ScalingReplicaSet              deployment/p-deploy              (combined from similar events): Scaled down replica set p-deploy-6679b7fdc6 from 7 to 6
-62s         Normal    SuccessfulDelete               replicaset/p-deploy-6679b7fdc6   (combined from similar events): Deleted pod: p-deploy-6679b7fdc6-8g4r2
-62s         Normal    Killing                        pod/p-deploy-6679b7fdc6-8g4r2    Stopping container p
-32s         Warning   Unhealthy                      pod/p-deploy-6679b7fdc6-sml7z    Liveness probe failed: Get "http://10.244.0.9:8080/healthz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
-32s         Normal    Killing                        pod/p-deploy-6679b7fdc6-sml7z    Container p failed liveness probe, will be restarted
-12s         Warning   Unhealthy                      pod/p-deploy-6679b7fdc6-sml7z    Readiness probe failed: Get "http://10.244.0.9:8080/healthz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
-5s          Normal    SuccessfulRescale              horizontalpodautoscaler/p-hpa    (combined from similar events): New size: 3; reason: All metrics below target
-5s          Normal    Killing                        pod/p-deploy-6679b7fdc6-2ms2d    Stopping container p
-5s          Normal    Killing                        pod/p-deploy-6679b7fdc6-j4zc7    Stopping container p
-5s          Normal    ScalingReplicaSet              deployment/p-deploy              Scaled down replica set p-deploy-6679b7fdc6 from 6 to 3
-3s          Normal    Started                        pod/p-deploy-6679b7fdc6-sml7z    Started container p
-3s          Normal    Killing                        pod/p-deploy-6679b7fdc6-sml7z    Stopping container p
-3s          Normal    Pulled                         pod/p-deploy-6679b7fdc6-sml7z    Container image "p-gateway:local" already present on machine
-3s          Normal    Created                        pod/p-deploy-6679b7fdc6-sml7z    Created container: p
+3m          Normal    SuccessfulCreate    replicaset/a-deploy-766ffc4fc9   Created pod: a-deploy-766ffc4fc9-8kvz6
+2m59s       Normal    Started             pod/a-deploy-766ffc4fc9-8kvz6    Started container a
+2m59s       Normal    Created             pod/a-deploy-766ffc4fc9-8kvz6    Created container: a
+2m59s       Normal    SuccessfulRescale   horizontalpodautoscaler/p-hpa    New size: 8; reason: cpu resource utilization (percentage of request) above target
+2m59s       Normal    Scheduled           pod/p-deploy-6679b7fdc6-xdlmf    Successfully assigned pspd/p-deploy-6679b7fdc6-xdlmf to minikube
+2m59s       Normal    ScalingReplicaSet   deployment/p-deploy              Scaled up replica set p-deploy-6679b7fdc6 from 6 to 8
+2m59s       Normal    Scheduled           pod/p-deploy-6679b7fdc6-cbjk2    Successfully assigned pspd/p-deploy-6679b7fdc6-cbjk2 to minikube
+2m59s       Normal    Pulled              pod/a-deploy-766ffc4fc9-8kvz6    Container image "a-service:local" already present on machine
+2m58s       Normal    Started             pod/p-deploy-6679b7fdc6-xdlmf    Started container p
+2m58s       Normal    Pulled              pod/p-deploy-6679b7fdc6-cbjk2    Container image "p-gateway:local" already present on machine
+2m58s       Normal    Started             pod/p-deploy-6679b7fdc6-cbjk2    Started container p
+2m58s       Normal    Created             pod/p-deploy-6679b7fdc6-xdlmf    Created container: p
+2m58s       Normal    Pulled              pod/p-deploy-6679b7fdc6-xdlmf    Container image "p-gateway:local" already present on machine
+2m58s       Normal    Created             pod/p-deploy-6679b7fdc6-cbjk2    Created container: p
+74s         Normal    Killing             pod/p-deploy-6679b7fdc6-7l8fd    Stopping container p
+74s         Normal    Killing             pod/p-deploy-6679b7fdc6-vsjtf    Stopping container p
+74s         Normal    SuccessfulDelete    replicaset/p-deploy-6679b7fdc6   Deleted pod: p-deploy-6679b7fdc6-vsjtf
+74s         Normal    SuccessfulRescale   horizontalpodautoscaler/p-hpa    New size: 4; reason: All metrics below target
+74s         Normal    Killing             pod/p-deploy-6679b7fdc6-cbjk2    Stopping container p
+74s         Normal    ScalingReplicaSet   deployment/p-deploy              Scaled down replica set p-deploy-6679b7fdc6 from 8 to 4
+74s         Normal    Killing             pod/p-deploy-6679b7fdc6-xdlmf    Stopping container p
+31s         Warning   Unhealthy           pod/p-deploy-6679b7fdc6-lgjgf    Liveness probe failed: Get "http://10.244.0.38:8080/healthz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+31s         Normal    Killing             pod/p-deploy-6679b7fdc6-lgjgf    Container p failed liveness probe, will be restarted
+14s         Normal    Killing             pod/p-deploy-6679b7fdc6-lr7g7    Stopping container p
+14s         Normal    SuccessfulRescale   horizontalpodautoscaler/p-hpa    New size: 2; reason: All metrics below target
+14s         Normal    ScalingReplicaSet   deployment/p-deploy              Scaled down replica set p-deploy-6679b7fdc6 from 4 to 2
+10s         Warning   Unhealthy           pod/p-deploy-6679b7fdc6-lgjgf    Readiness probe failed: Get "http://10.244.0.38:8080/healthz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+0s          Normal    Started             pod/p-deploy-6679b7fdc6-lgjgf    Started container p
+0s          Normal    Created             pod/p-deploy-6679b7fdc6-lgjgf    Created container: p
+0s          Normal    Pulled              pod/p-deploy-6679b7fdc6-lgjgf    Container image "p-gateway:local" already present on machine

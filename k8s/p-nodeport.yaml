@@ -1,0 +1,19 @@
+# Service NodePort para acesso direto sem port-forward
+# Mais estável para testes de longa duração
+apiVersion: v1
+kind: Service
+metadata:
+  name: p-svc-nodeport
+  namespace: pspd
+  labels:
+    app: p
+spec:
+  type: NodePort
+  selector:
+    app: p
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    nodePort: 30080  # Porta fixa para facilitar testes
+

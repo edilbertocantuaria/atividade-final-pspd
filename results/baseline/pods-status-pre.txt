@@ -1,9 +1,5 @@
-NAME                        READY   STATUS    RESTARTS   AGE     IP            NODE       NOMINATED NODE   READINESS GATES
-a-deploy-766ffc4fc9-94chb   1/1     Running   0          5m7s    10.244.0.19   minikube   <none>           <none>
-a-deploy-766ffc4fc9-h5c66   1/1     Running   0          73m     10.244.0.7    minikube   <none>           <none>
-b-deploy-5b5c9d8466-5xtc7   1/1     Running   0          7m57s   10.244.0.11   minikube   <none>           <none>
-b-deploy-5b5c9d8466-g5bms   1/1     Running   0          4m52s   10.244.0.21   minikube   <none>           <none>
-b-deploy-5b5c9d8466-lhkzn   1/1     Running   0          5m7s    10.244.0.15   minikube   <none>           <none>
-b-deploy-5b5c9d8466-rj98d   1/1     Running   0          5m7s    10.244.0.16   minikube   <none>           <none>
-b-deploy-5b5c9d8466-zmwd8   1/1     Running   0          73m     10.244.0.8    minikube   <none>           <none>
-p-deploy-6679b7fdc6-sml7z   1/1     Running   0          73m     10.244.0.9    minikube   <none>           <none>
+NAME                        READY   STATUS    RESTARTS   AGE    IP            NODE       NOMINATED NODE   READINESS GATES
+a-deploy-766ffc4fc9-h5c66   1/1     Running   0          170m   10.244.0.7    minikube   <none>           <none>
+b-deploy-5b5c9d8466-zmwd8   1/1     Running   0          170m   10.244.0.8    minikube   <none>           <none>
+p-deploy-6679b7fdc6-hw92s   1/1     Running   0          10m    10.244.0.48   minikube   <none>           <none>
+p-deploy-6679b7fdc6-lgjgf   1/1     Running   0          53m    10.244.0.38   minikube   <none>           <none>

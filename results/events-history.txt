@@ -1,0 +1,151 @@
+LAST SEEN   TYPE      REASON              OBJECT                           MESSAGE
+42m         Normal    Scheduled           pod/p-deploy-6679b7fdc6-hw92s    Successfully assigned pspd/p-deploy-6679b7fdc6-hw92s to minikube
+42m         Normal    SuccessfulCreate    replicaset/p-deploy-6679b7fdc6   Created pod: p-deploy-6679b7fdc6-hw92s
+42m         Normal    Started             pod/p-deploy-6679b7fdc6-hw92s    Started container p
+42m         Normal    Created             pod/p-deploy-6679b7fdc6-hw92s    Created container: p
+42m         Normal    Pulled              pod/p-deploy-6679b7fdc6-hw92s    Container image "p-gateway:local" already present on machine
+30m         Normal    SuccessfulDelete    replicaset/p-deploy-6679b7fdc6   Deleted pod: p-deploy-6679b7fdc6-hw92s
+30m         Normal    Killing             pod/p-deploy-6679b7fdc6-hw92s    Stopping container p
+30m         Normal    SuccessfulCreate    replicaset/b-deploy-5b5c9d8466   Created pod: b-deploy-5b5c9d8466-8fznw
+30m         Normal    Scheduled           pod/b-deploy-5b5c9d8466-5rrtp    Successfully assigned pspd/b-deploy-5b5c9d8466-5rrtp to minikube
+30m         Normal    SuccessfulRescale   horizontalpodautoscaler/b-hpa    New size: 3; reason: cpu resource utilization (percentage of request) above target
+30m         Normal    ScalingReplicaSet   deployment/b-deploy              Scaled up replica set b-deploy-5b5c9d8466 from 1 to 3
+30m         Normal    SuccessfulCreate    replicaset/b-deploy-5b5c9d8466   Created pod: b-deploy-5b5c9d8466-5rrtp
+30m         Normal    Pulled              pod/b-deploy-5b5c9d8466-8fznw    Container image "b-service:local" already present on machine
+30m         Normal    Scheduled           pod/b-deploy-5b5c9d8466-8fznw    Successfully assigned pspd/b-deploy-5b5c9d8466-8fznw to minikube
+30m         Normal    Pulled              pod/b-deploy-5b5c9d8466-5rrtp    Container image "b-service:local" already present on machine
+30m         Normal    SuccessfulRescale   horizontalpodautoscaler/p-hpa    New size: 3; reason: cpu resource utilization (percentage of request) above target
+30m         Normal    Started             pod/b-deploy-5b5c9d8466-8fznw    Started container b
+30m         Normal    Scheduled           pod/p-deploy-6679b7fdc6-2zdjq    Successfully assigned pspd/p-deploy-6679b7fdc6-2zdjq to minikube
+30m         Normal    Created             pod/b-deploy-5b5c9d8466-5rrtp    Created container: b
+30m         Normal    Started             pod/b-deploy-5b5c9d8466-5rrtp    Started container b
+30m         Normal    Scheduled           pod/p-deploy-6679b7fdc6-64b4h    Successfully assigned pspd/p-deploy-6679b7fdc6-64b4h to minikube
+30m         Normal    SuccessfulCreate    replicaset/p-deploy-6679b7fdc6   Created pod: p-deploy-6679b7fdc6-2zdjq
+30m         Normal    ScalingReplicaSet   deployment/p-deploy              Scaled up replica set p-deploy-6679b7fdc6 from 1 to 3
+30m         Normal    SuccessfulCreate    replicaset/p-deploy-6679b7fdc6   Created pod: p-deploy-6679b7fdc6-64b4h
+30m         Normal    Created             pod/b-deploy-5b5c9d8466-8fznw    Created container: b
+30m         Normal    Pulled              pod/p-deploy-6679b7fdc6-2zdjq    Container image "p-gateway:local" already present on machine
+30m         Normal    Created             pod/p-deploy-6679b7fdc6-64b4h    Created container: p
+30m         Normal    Created             pod/p-deploy-6679b7fdc6-2zdjq    Created container: p
+30m         Normal    Started             pod/p-deploy-6679b7fdc6-64b4h    Started container p
+30m         Normal    Started             pod/p-deploy-6679b7fdc6-2zdjq    Started container p
+30m         Normal    Pulled              pod/p-deploy-6679b7fdc6-64b4h    Container image "p-gateway:local" already present on machine
+30m         Warning   Unhealthy           pod/b-deploy-5b5c9d8466-5rrtp    Readiness probe failed: dial tcp 10.244.0.50:50052: connect: connection refused
+30m         Warning   Unhealthy           pod/b-deploy-5b5c9d8466-8fznw    Readiness probe failed: dial tcp 10.244.0.49:50052: connect: connection refused
+29m         Normal    ScalingReplicaSet   deployment/p-deploy              Scaled up replica set p-deploy-6679b7fdc6 from 3 to 5
+29m         Normal    Pulled              pod/p-deploy-6679b7fdc6-v6sld    Container image "p-gateway:local" already present on machine
+29m         Normal    SuccessfulCreate    replicaset/p-deploy-6679b7fdc6   Created pod: p-deploy-6679b7fdc6-v6sld
+29m         Normal    Scheduled           pod/p-deploy-6679b7fdc6-hkfv4    Successfully assigned pspd/p-deploy-6679b7fdc6-hkfv4 to minikube
+29m         Normal    SuccessfulCreate    replicaset/p-deploy-6679b7fdc6   Created pod: p-deploy-6679b7fdc6-hkfv4
+29m         Normal    SuccessfulRescale   horizontalpodautoscaler/p-hpa    New size: 5; reason: cpu resource utilization (percentage of request) above target
+29m         Normal    Pulled              pod/p-deploy-6679b7fdc6-hkfv4    Container image "p-gateway:local" already present on machine
+29m         Normal    Scheduled           pod/p-deploy-6679b7fdc6-v6sld    Successfully assigned pspd/p-deploy-6679b7fdc6-v6sld to minikube
+29m         Normal    Created             pod/p-deploy-6679b7fdc6-v6sld    Created container: p
+29m         Normal    Started             pod/p-deploy-6679b7fdc6-hkfv4    Started container p
+29m         Normal    Created             pod/p-deploy-6679b7fdc6-hkfv4    Created container: p
+29m         Normal    Started             pod/p-deploy-6679b7fdc6-v6sld    Started container p
+27m         Normal    ScalingReplicaSet   deployment/p-deploy              Scaled down replica set p-deploy-6679b7fdc6 from 5 to 2
+27m         Normal    Killing             pod/p-deploy-6679b7fdc6-v6sld    Stopping container p
+27m         Normal    Killing             pod/p-deploy-6679b7fdc6-hkfv4    Stopping container p
+27m         Normal    Killing             pod/p-deploy-6679b7fdc6-2zdjq    Stopping container p
+27m         Normal    SuccessfulDelete    replicaset/p-deploy-6679b7fdc6   Deleted pod: p-deploy-6679b7fdc6-2zdjq
+27m         Normal    SuccessfulDelete    replicaset/p-deploy-6679b7fdc6   Deleted pod: p-deploy-6679b7fdc6-v6sld
+27m         Normal    SuccessfulDelete    replicaset/p-deploy-6679b7fdc6   Deleted pod: p-deploy-6679b7fdc6-hkfv4
+27m         Normal    Scheduled           pod/b-deploy-5b5c9d8466-7cmxt    Successfully assigned pspd/b-deploy-5b5c9d8466-7cmxt to minikube
+27m         Normal    ScalingReplicaSet   deployment/b-deploy              Scaled up replica set b-deploy-5b5c9d8466 from 3 to 5
+27m         Normal    Scheduled           pod/b-deploy-5b5c9d8466-2gx6n    Successfully assigned pspd/b-deploy-5b5c9d8466-2gx6n to minikube
+27m         Normal    SuccessfulCreate    replicaset/b-deploy-5b5c9d8466   Created pod: b-deploy-5b5c9d8466-7cmxt
+27m         Normal    SuccessfulCreate    replicaset/b-deploy-5b5c9d8466   Created pod: b-deploy-5b5c9d8466-2gx6n
+27m         Normal    SuccessfulRescale   horizontalpodautoscaler/b-hpa    New size: 5; reason: cpu resource utilization (percentage of request) above target
+27m         Normal    Started             pod/b-deploy-5b5c9d8466-7cmxt    Started container b
+27m         Normal    ScalingReplicaSet   deployment/p-deploy              Scaled up replica set p-deploy-6679b7fdc6 from 2 to 4
+27m         Normal    Scheduled           pod/p-deploy-6679b7fdc6-vsjtf    Successfully assigned pspd/p-deploy-6679b7fdc6-vsjtf to minikube
+27m         Normal    Pulled              pod/b-deploy-5b5c9d8466-7cmxt    Container image "b-service:local" already present on machine
+27m         Normal    Pulled              pod/b-deploy-5b5c9d8466-2gx6n    Container image "b-service:local" already present on machine
+27m         Normal    SuccessfulCreate    replicaset/p-deploy-6679b7fdc6   Created pod: p-deploy-6679b7fdc6-vsjtf
+27m         Normal    Created             pod/b-deploy-5b5c9d8466-7cmxt    Created container: b
+27m         Normal    Scheduled           pod/p-deploy-6679b7fdc6-lr7g7    Successfully assigned pspd/p-deploy-6679b7fdc6-lr7g7 to minikube
+27m         Normal    SuccessfulRescale   horizontalpodautoscaler/p-hpa    New size: 4; reason: cpu resource utilization (percentage of request) above target
+27m         Normal    Created             pod/b-deploy-5b5c9d8466-2gx6n    Created container: b
+27m         Normal    Started             pod/b-deploy-5b5c9d8466-2gx6n    Started container b
+27m         Normal    Pulled              pod/p-deploy-6679b7fdc6-lr7g7    Container image "p-gateway:local" already present on machine
+27m         Normal    Started             pod/p-deploy-6679b7fdc6-lr7g7    Started container p
+27m         Normal    Created             pod/p-deploy-6679b7fdc6-lr7g7    Created container: p
+27m         Normal    Pulled              pod/p-deploy-6679b7fdc6-vsjtf    Container image "p-gateway:local" already present on machine
+27m         Normal    Created             pod/p-deploy-6679b7fdc6-vsjtf    Created container: p
+27m         Normal    Started             pod/p-deploy-6679b7fdc6-vsjtf    Started container p
+26m         Normal    SuccessfulRescale   horizontalpodautoscaler/p-hpa    New size: 6; reason: cpu resource utilization (percentage of request) above target
+26m         Normal    Scheduled           pod/p-deploy-6679b7fdc6-7l8fd    Successfully assigned pspd/p-deploy-6679b7fdc6-7l8fd to minikube
+26m         Normal    Scheduled           pod/p-deploy-6679b7fdc6-t6h98    Successfully assigned pspd/p-deploy-6679b7fdc6-t6h98 to minikube
+26m         Normal    ScalingReplicaSet   deployment/p-deploy              Scaled up replica set p-deploy-6679b7fdc6 from 4 to 6
+26m         Normal    Started             pod/p-deploy-6679b7fdc6-7l8fd    Started container p
+26m         Normal    Started             pod/p-deploy-6679b7fdc6-t6h98    Started container p
+26m         Normal    Created             pod/p-deploy-6679b7fdc6-t6h98    Created container: p
+26m         Normal    Pulled              pod/p-deploy-6679b7fdc6-t6h98    Container image "p-gateway:local" already present on machine
+26m         Normal    Pulled              pod/p-deploy-6679b7fdc6-7l8fd    Container image "p-gateway:local" already present on machine
+26m         Normal    Created             pod/p-deploy-6679b7fdc6-7l8fd    Created container: p
+18m         Normal    Scheduled           pod/a-deploy-766ffc4fc9-8kvz6    Successfully assigned pspd/a-deploy-766ffc4fc9-8kvz6 to minikube
+18m         Normal    SuccessfulRescale   horizontalpodautoscaler/a-hpa    New size: 2; reason: cpu resource utilization (percentage of request) above target
+18m         Normal    ScalingReplicaSet   deployment/a-deploy              Scaled up replica set a-deploy-766ffc4fc9 from 1 to 2
+18m         Normal    SuccessfulCreate    replicaset/a-deploy-766ffc4fc9   Created pod: a-deploy-766ffc4fc9-8kvz6
+18m         Normal    Created             pod/a-deploy-766ffc4fc9-8kvz6    Created container: a
+18m         Normal    Scheduled           pod/p-deploy-6679b7fdc6-xdlmf    Successfully assigned pspd/p-deploy-6679b7fdc6-xdlmf to minikube
+18m         Normal    Scheduled           pod/p-deploy-6679b7fdc6-cbjk2    Successfully assigned pspd/p-deploy-6679b7fdc6-cbjk2 to minikube
+18m         Normal    Started             pod/a-deploy-766ffc4fc9-8kvz6    Started container a
+18m         Normal    ScalingReplicaSet   deployment/p-deploy              Scaled up replica set p-deploy-6679b7fdc6 from 6 to 8
+18m         Normal    Pulled              pod/a-deploy-766ffc4fc9-8kvz6    Container image "a-service:local" already present on machine
+18m         Normal    SuccessfulRescale   horizontalpodautoscaler/p-hpa    New size: 8; reason: cpu resource utilization (percentage of request) above target
+18m         Normal    Pulled              pod/p-deploy-6679b7fdc6-xdlmf    Container image "p-gateway:local" already present on machine
+18m         Normal    Created             pod/p-deploy-6679b7fdc6-xdlmf    Created container: p
+18m         Normal    Started             pod/p-deploy-6679b7fdc6-xdlmf    Started container p
+18m         Normal    Pulled              pod/p-deploy-6679b7fdc6-cbjk2    Container image "p-gateway:local" already present on machine
+18m         Normal    Created             pod/p-deploy-6679b7fdc6-cbjk2    Created container: p
+18m         Normal    Started             pod/p-deploy-6679b7fdc6-cbjk2    Started container p
+16m         Normal    SuccessfulRescale   horizontalpodautoscaler/p-hpa    New size: 4; reason: All metrics below target
+16m         Normal    Killing             pod/p-deploy-6679b7fdc6-vsjtf    Stopping container p
+16m         Normal    ScalingReplicaSet   deployment/p-deploy              Scaled down replica set p-deploy-6679b7fdc6 from 8 to 4
+16m         Normal    Killing             pod/p-deploy-6679b7fdc6-cbjk2    Stopping container p
+16m         Normal    Killing             pod/p-deploy-6679b7fdc6-xdlmf    Stopping container p
+16m         Normal    Killing             pod/p-deploy-6679b7fdc6-7l8fd    Stopping container p
+16m         Normal    SuccessfulDelete    replicaset/p-deploy-6679b7fdc6   Deleted pod: p-deploy-6679b7fdc6-vsjtf
+15m         Warning   Unhealthy           pod/p-deploy-6679b7fdc6-lgjgf    Liveness probe failed: Get "http://10.244.0.38:8080/healthz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+15m         Normal    Killing             pod/p-deploy-6679b7fdc6-lgjgf    Container p failed liveness probe, will be restarted
+15m         Normal    SuccessfulRescale   horizontalpodautoscaler/p-hpa    New size: 2; reason: All metrics below target
+15m         Normal    ScalingReplicaSet   deployment/p-deploy              Scaled down replica set p-deploy-6679b7fdc6 from 4 to 2
+15m         Normal    Killing             pod/p-deploy-6679b7fdc6-lr7g7    Stopping container p
+15m         Warning   Unhealthy           pod/p-deploy-6679b7fdc6-lgjgf    Readiness probe failed: Get "http://10.244.0.38:8080/healthz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+15m         Normal    Started             pod/p-deploy-6679b7fdc6-lgjgf    Started container p
+15m         Normal    Created             pod/p-deploy-6679b7fdc6-lgjgf    Created container: p
+15m         Normal    Pulled              pod/p-deploy-6679b7fdc6-lgjgf    Container image "p-gateway:local" already present on machine
+15m         Normal    Killing             pod/p-deploy-6679b7fdc6-lgjgf    Stopping container p
+14m         Normal    Killing             pod/p-deploy-6679b7fdc6-t6h98    Stopping container p
+10m         Normal    Started             pod/p-deploy-6679b7fdc6-cbwfj    Started container p
+10m         Normal    Pulled              pod/p-deploy-6679b7fdc6-cbwfj    Container image "p-gateway:local" already present on machine
+10m         Normal    ScalingReplicaSet   deployment/p-deploy              (combined from similar events): Scaled up replica set p-deploy-6679b7fdc6 from 1 to 2
+10m         Normal    Scheduled           pod/p-deploy-6679b7fdc6-cbwfj    Successfully assigned pspd/p-deploy-6679b7fdc6-cbwfj to minikube
+10m         Normal    Created             pod/p-deploy-6679b7fdc6-cbwfj    Created container: p
+9m41s       Normal    Killing             pod/b-deploy-5b5c9d8466-2gx6n    Stopping container b
+9m41s       Normal    Killing             pod/b-deploy-5b5c9d8466-8fznw    Stopping container b
+9m41s       Normal    ScalingReplicaSet   deployment/a-deploy              Scaled down replica set a-deploy-766ffc4fc9 from 2 to 1
+9m41s       Normal    SuccessfulRescale   horizontalpodautoscaler/a-hpa    New size: 1; reason: All metrics below target
+9m41s       Normal    SuccessfulDelete    replicaset/b-deploy-5b5c9d8466   Deleted pod: b-deploy-5b5c9d8466-7cmxt
+9m41s       Normal    Killing             pod/b-deploy-5b5c9d8466-5rrtp    Stopping container b
+9m41s       Normal    Killing             pod/b-deploy-5b5c9d8466-7cmxt    Stopping container b
+9m41s       Normal    SuccessfulDelete    replicaset/a-deploy-766ffc4fc9   Deleted pod: a-deploy-766ffc4fc9-8kvz6
+9m41s       Normal    SuccessfulRescale   horizontalpodautoscaler/b-hpa    New size: 1; reason: All metrics below target
+9m41s       Normal    Killing             pod/a-deploy-766ffc4fc9-8kvz6    Stopping container a
+9m41s       Normal    ScalingReplicaSet   deployment/b-deploy              Scaled down replica set b-deploy-5b5c9d8466 from 5 to 1
+9m41s       Normal    SuccessfulDelete    replicaset/b-deploy-5b5c9d8466   Deleted pod: b-deploy-5b5c9d8466-2gx6n
+9m41s       Normal    SuccessfulDelete    replicaset/b-deploy-5b5c9d8466   Deleted pod: b-deploy-5b5c9d8466-8fznw
+9m41s       Normal    SuccessfulDelete    replicaset/b-deploy-5b5c9d8466   Deleted pod: b-deploy-5b5c9d8466-5rrtp
+5m40s       Normal    SuccessfulRescale   horizontalpodautoscaler/p-hpa    New size: 1; reason: All metrics below target
+5m40s       Normal    SuccessfulDelete    replicaset/p-deploy-6679b7fdc6   (combined from similar events): Deleted pod: p-deploy-6679b7fdc6-cbwfj
+5m40s       Normal    ScalingReplicaSet   deployment/p-deploy              Scaled down replica set p-deploy-6679b7fdc6 from 2 to 1
+5m40s       Normal    Killing             pod/p-deploy-6679b7fdc6-cbwfj    Stopping container p
+59s         Normal    Scheduled           pod/p-deploy-6679b7fdc6-btdsp    Successfully assigned pspd/p-deploy-6679b7fdc6-btdsp to minikube
+59s         Normal    SuccessfulRescale   horizontalpodautoscaler/p-hpa    New size: 2; reason: cpu resource utilization (percentage of request) above target
+59s         Normal    ScalingReplicaSet   deployment/p-deploy              Scaled up replica set p-deploy-6679b7fdc6 from 1 to 2
+59s         Normal    SuccessfulCreate    replicaset/p-deploy-6679b7fdc6   (combined from similar events): Created pod: p-deploy-6679b7fdc6-btdsp
+58s         Normal    Pulled              pod/p-deploy-6679b7fdc6-btdsp    Container image "p-gateway:local" already present on machine
+58s         Normal    Created             pod/p-deploy-6679b7fdc6-btdsp    Created container: p
+58s         Normal    Started             pod/p-deploy-6679b7fdc6-btdsp    Started container p

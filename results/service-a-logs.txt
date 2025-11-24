@@ -1,0 +1,2 @@
+Metrics server started on :9101
+Service A listening on :50051
