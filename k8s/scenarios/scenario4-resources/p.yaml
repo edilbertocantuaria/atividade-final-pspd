@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: p-deploy
+  namespace: pspd
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: p } }
+  template:
+    metadata: 
+      labels: 
+        app: p
+        version: v1
+        scenario: resources
+    spec:
+      containers:
+        - name: p
+          image: p-gateway:local
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: A_ADDR, value: "a-svc.pspd.svc.cluster.local:50051" }
+            - { name: B_ADDR, value: "b-svc.pspd.svc.cluster.local:50052" }
+            - { name: PORT,   value: "8080" }
+          ports: 
+            - { containerPort: 8080, name: http }
+          resources:
+            # ALTERADO: Recursos reduzidos (stress test)
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          readinessProbe: { httpGet: { path: /healthz, port: 8080 }, initialDelaySeconds: 3, periodSeconds: 5 }
+          livenessProbe:  { httpGet: { path: /healthz, port: 8080 }, initialDelaySeconds: 5, periodSeconds: 10 }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: p-svc
+  namespace: pspd
+  labels:
+    app: p
+spec:
+  selector: { app: p }
+  ports: 
+    - { port: 80, targetPort: 8080, name: http }
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: p-hpa
+  namespace: pspd
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: p-deploy
+  minReplicas: 1
+  maxReplicas: 15  # AUMENTADO para compensar
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60

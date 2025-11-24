@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: a-deploy
+  namespace: pspd
+spec:
+  replicas: 3  # 3 réplicas para distribuir em 3 nodes
+  selector: { matchLabels: { app: a } }
+  template:
+    metadata: 
+      labels: 
+        app: a
+        version: v1
+        scenario: distribution
+    spec:
+      # ALTERADO: Anti-affinity para forçar distribuição
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - a
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: a
+          image: a-service:local
+          imagePullPolicy: IfNotPresent
+          ports: 
+            - { containerPort: 50051, name: grpc }
+            - { containerPort: 9101, name: metrics }
+          env:
+            - { name: PORT, value: "50051" }
+            - { name: METRICS_PORT, value: "9101" }
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          readinessProbe: { tcpSocket: { port: 50051 }, initialDelaySeconds: 2, periodSeconds: 5 }
+          livenessProbe:  { tcpSocket: { port: 50051 }, initialDelaySeconds: 5, periodSeconds: 10 }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: a-svc
+  namespace: pspd
+  labels:
+    app: a
+spec:
+  selector: { app: a }
+  ports: 
+    - { port: 50051, targetPort: 50051, name: grpc }
+    - { port: 9101, targetPort: 9101, name: metrics }
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: a-hpa
+  namespace: pspd
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: a-deploy
+  minReplicas: 3
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

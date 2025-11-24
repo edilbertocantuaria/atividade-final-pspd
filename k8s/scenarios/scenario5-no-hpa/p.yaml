@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: p-deploy
+  namespace: pspd
+spec:
+  replicas: 5  # FIXO - não escalará (mais que a/b pois gateway recebe mais carga)
+  selector: { matchLabels: { app: p } }
+  template:
+    metadata: 
+      labels: 
+        app: p
+        version: v1
+        scenario: no-hpa
+    spec:
+      containers:
+        - name: p
+          image: p-gateway:local
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: A_ADDR, value: "a-svc.pspd.svc.cluster.local:50051" }
+            - { name: B_ADDR, value: "b-svc.pspd.svc.cluster.local:50052" }
+            - { name: PORT,   value: "8080" }
+          ports: 
+            - { containerPort: 8080, name: http }
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          readinessProbe: { httpGet: { path: /healthz, port: 8080 }, initialDelaySeconds: 3, periodSeconds: 5 }
+          livenessProbe:  { httpGet: { path: /healthz, port: 8080 }, initialDelaySeconds: 5, periodSeconds: 10 }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: p-svc
+  namespace: pspd
+  labels:
+    app: p
+spec:
+  selector: { app: p }
+  ports: 
+    - { port: 80, targetPort: 8080, name: http }
