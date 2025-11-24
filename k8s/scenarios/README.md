@@ -220,14 +220,14 @@ mv results/ results-scenario-X/
 
 ## 📊 Script Automatizado
 
-Use o script `run_scenario_comparison.sh` para executar todos os cenários automaticamente:
+### Executar Todos os Cenários Automaticamente
 
 ```bash
-./scripts/run_scenario_comparison.sh
+./scripts/run_scenario_comparison.sh --all
 ```
 
 Este script:
-1. Executa cada cenário sequencialmente
+1. Executa cada cenário sequencialmente (1→2→3→4→5)
 2. Salva resultados em `results-scenario-{1-5}/`
 3. Gera análise comparativa ao final
 4. **Cria 6 gráficos comparativos**:
@@ -238,6 +238,95 @@ Este script:
    - Análise de custo (pod*hora)
    - Radar chart multi-dimensional
 5. Gera relatórios textuais
+
+**Tempo estimado**: 2-3 horas (30-35min por cenário)
+
+---
+
+### Executar Cenário Específico (Menu Interativo)
+
+```bash
+./scripts/run_scenario_comparison.sh
+```
+
+**Menu exibido**:
+```
+╔══════════════════════════════════════════════════════════════╗
+║  Selecione a operação:                                       ║
+╚══════════════════════════════════════════════════════════════╝
+
+  1) Executar TODOS os cenários (automático)
+  2) Executar cenário específico
+  3) Apenas gerar análise comparativa
+  4) Sair
+
+Opção: 2
+```
+
+**Ao selecionar opção 2**, você escolhe qual cenário executar:
+```
+Cenários disponíveis:
+
+  1) Cenário 1: base
+  2) Cenário 2: replicas
+  3) Cenário 3: distribution
+  4) Cenário 4: resources
+  5) Cenário 5: no-hpa
+
+Selecione o cenário (1-5): 3
+```
+
+Isso executará apenas o Cenário 3 (Distribuição Forçada).
+
+---
+
+### Gerar Apenas Análise Comparativa
+
+```bash
+./scripts/run_scenario_comparison.sh --compare
+```
+
+**Ou diretamente**:
+```bash
+python3 scripts/compare_scenarios.py
+```
+
+Gera gráficos e relatórios a partir dos resultados já existentes (sem executar testes novamente).
+
+**Requisito**: Pelo menos 2 cenários devem ter sido executados previamente.
+
+---
+
+### Execução Manual Individual
+
+Se preferir controle total, execute manualmente:
+
+```bash
+# 1. Limpar ambiente
+kubectl delete namespace pspd
+kubectl create namespace pspd
+
+# 2. Aplicar cenário desejado
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/scenarios/scenario3-distribution/  # Exemplo: cenário 3
+
+# 3. Aguardar pods
+kubectl wait --for=condition=ready pod --all -n pspd --timeout=120s
+
+# 4. Fazer port-forward
+kubectl port-forward -n pspd svc/p-svc 8080:80 &
+
+# 5. Executar testes
+./scripts/run_all_tests.sh all
+
+# 6. Salvar resultados
+mv results/ results-scenario-3-distribution/
+
+# 7. Matar port-forward
+pkill -f "port-forward.*pspd"
+```
+
+---
 
 **Saída esperada:**
 - `scenario-comparison/01_scenario_latency_comparison.png`

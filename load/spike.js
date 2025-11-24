@@ -14,6 +14,8 @@ export const options = {
     http_req_duration: ['p(95)<2000'],  // aceita até 2s
     http_req_failed: ['rate<0.1'],      // aceita até 10% de erro
   },
+  discardResponseBodies: true,
+  summaryTimeUnit: 'ms',
 };
 
 export default function () {

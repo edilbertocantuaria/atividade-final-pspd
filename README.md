@@ -209,7 +209,7 @@ python3 scripts/analyze_results.py
 
 ## 📊 Testes de Carga
 
-### Cenários Implementados
+### Cenários K6 (Testes de Carga)
 
 | Teste | Duração | Carga | Objetivo |
 |-------|---------|-------|----------|
@@ -218,6 +218,37 @@ python3 scripts/analyze_results.py
 | **spike.js** | 1.5 min | 10→200 VUs súbito | Resiliência a picos (~33% erro esperado) |
 | **soak.js** | 11 min | 50 VUs sustentado | Estabilidade long-term |
 | **stress.js** | 1.5 min | 10→200 VUs | Encontrar limite (PODE ter erros) |
+
+### Cenários de Configuração K8s (Análise Comparativa)
+
+**5 cenários distintos** para avaliar impacto de configurações no desempenho:
+
+| Cenário | Descrição | Foco |
+|---------|-----------|------|
+| **1. Base** | HPA enabled, 1 replica inicial | Autoscaling padrão |
+| **2. Replicas** | 2 replicas iniciais | Warm start |
+| **3. Distribution** | Anti-affinity forçada | Alta disponibilidade |
+| **4. Resources** | CPU/Memory -50% | Economia de recursos |
+| **5. No HPA** | Réplicas fixas (3/5) | Sem autoscaling |
+
+**Comandos**:
+
+```bash
+# Executar todos os 5 cenários (2-3 horas)
+./scripts/run_scenario_comparison.sh --all
+
+# Menu interativo para escolher cenário específico
+./scripts/run_scenario_comparison.sh
+
+# Gerar apenas gráficos comparativos (dados já existentes)
+./scripts/run_scenario_comparison.sh --compare
+```
+
+**📈 Saída**: 6 gráficos comparativos + relatórios (ver `scenario-comparison/README.md`)
+
+**Documentação completa**: `k8s/scenarios/README.md`
+
+---
 
 ### Métricas Coletadas
 

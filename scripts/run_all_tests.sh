@@ -80,6 +80,9 @@ run_test() {
     capture_k8s_metrics "$test_name" "-pre"
     
     k6 run --out json="$result_dir/metrics.json" \
+        --quiet \
+        --no-color \
+        --summary-trend-stats="min,avg,med,max,p(90),p(95),p(99)" \
         -e BASE_URL="$BASE_URL" \
         "$test_file" | tee "$result_dir/output.txt"
     

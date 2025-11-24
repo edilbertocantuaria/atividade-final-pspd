@@ -12,9 +12,12 @@ export const options = {
     http_req_duration: ['p(95)<800', 'p(99)<1500'],
     http_req_failed: ['rate<0.05'],  // Aumentado de 0.02 para 0.05 (5% de falha tolerável)
   },
-  // Configurações para melhorar estabilidade
+  // Configurações para melhorar estabilidade e reduzir ruído de log
   noConnectionReuse: false,
   userAgent: 'k6-soak-test/1.0',
+  // Suprimir warnings individuais de conexão (esperados durante HPA scaling)
+  discardResponseBodies: true,
+  summaryTimeUnit: 'ms',
 };
 
 export default function () {
