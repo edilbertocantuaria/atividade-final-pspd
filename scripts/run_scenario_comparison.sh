@@ -285,7 +285,7 @@ generate_comparison() {
     COMPARISON_DIR="$PROJECT_DIR/scenario-comparison"
     mkdir -p "$COMPARISON_DIR"
     
-    echo "📝 Gerando relatório comparativo..."
+    echo "📝 Gerando relatório markdown..."
     
     # Extrair métricas de cada cenário
     cat > "$COMPARISON_DIR/comparison-summary.md" << 'EOF'
@@ -314,9 +314,27 @@ EOF
         echo "" >> "$COMPARISON_DIR/comparison-summary.md"
     done
     
-    echo -e "${GREEN}✓ Relatório gerado: $COMPARISON_DIR/comparison-summary.md${NC}"
+    echo -e "${GREEN}✓ Relatório markdown gerado${NC}"
     echo ""
-    echo "📊 Análise disponível em: $COMPARISON_DIR/"
+    
+    # Executar script Python para gerar gráficos comparativos
+    echo "📈 Gerando gráficos comparativos..."
+    echo ""
+    
+    if python3 "$PROJECT_DIR/scripts/compare_scenarios.py"; then
+        echo ""
+        echo -e "${GREEN}✅ Análise comparativa completa!${NC}"
+        echo ""
+        echo "📊 Gráficos disponíveis em: $COMPARISON_DIR/"
+        ls -lh "$COMPARISON_DIR"/*.png 2>/dev/null | awk '{print "  - " $9}'
+        echo ""
+        echo "📄 Relatórios:"
+        echo "  - $COMPARISON_DIR/comparison-summary.md"
+        echo "  - $COMPARISON_DIR/SCENARIO_COMPARISON_REPORT.txt"
+    else
+        echo -e "${YELLOW}⚠️  Erro ao gerar gráficos comparativos${NC}"
+        echo "Verifique se matplotlib está instalado: pip3 install matplotlib"
+    fi
 }
 
 # Main

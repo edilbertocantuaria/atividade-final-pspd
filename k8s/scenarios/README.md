@@ -230,7 +230,24 @@ Este script:
 1. Executa cada cenário sequencialmente
 2. Salva resultados em `results-scenario-{1-5}/`
 3. Gera análise comparativa ao final
-4. Cria gráficos side-by-side
+4. **Cria 6 gráficos comparativos**:
+   - Latência P95 entre cenários
+   - Throughput comparado
+   - Escalamento HPA
+   - Taxa de sucesso
+   - Análise de custo (pod*hora)
+   - Radar chart multi-dimensional
+5. Gera relatórios textuais
+
+**Saída esperada:**
+- `scenario-comparison/01_scenario_latency_comparison.png`
+- `scenario-comparison/02_scenario_throughput_comparison.png`
+- `scenario-comparison/03_scenario_hpa_scaling.png`
+- `scenario-comparison/04_scenario_success_rate.png`
+- `scenario-comparison/05_scenario_cost_analysis.png`
+- `scenario-comparison/06_scenario_performance_radar.png`
+- `scenario-comparison/SCENARIO_COMPARISON_REPORT.txt`
+- `scenario-comparison/comparison-summary.md`
 
 ---
 

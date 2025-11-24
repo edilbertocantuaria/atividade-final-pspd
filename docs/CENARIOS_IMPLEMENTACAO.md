@@ -176,8 +176,24 @@ atividade-final-pspd/
 ├── results-scenario-4-resources/
 ├── results-scenario-5-no-hpa/
 └── scenario-comparison/
+    ├── 01_scenario_latency_comparison.png
+    ├── 02_scenario_throughput_comparison.png
+    ├── 03_scenario_hpa_scaling.png
+    ├── 04_scenario_success_rate.png
+    ├── 05_scenario_cost_analysis.png
+    ├── 06_scenario_performance_radar.png
+    ├── SCENARIO_COMPARISON_REPORT.txt
     └── comparison-summary.md
 ```
+
+### Gráficos Comparativos Gerados
+
+1. **Latência P95**: Compara latência entre todos os cenários em cada tipo de teste
+2. **Throughput**: Visualiza req/s de cada cenário
+3. **HPA Scaling**: Mostra número de réplicas durante spike
+4. **Taxa de Sucesso**: 4 gráficos (1 por teste) comparando success rate
+5. **Análise de Custo**: Pods ativos e custo estimado (pod-hora)
+6. **Radar Chart**: Visão multi-dimensional (throughput, latência, custo, HA)
 
 ## ✅ Checklist de Implementação
 
