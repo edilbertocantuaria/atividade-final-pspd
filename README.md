@@ -215,8 +215,9 @@ python3 scripts/analyze_results.py
 |-------|---------|-------|----------|
 | **baseline.js** | 2 min | 10 VUs constantes | Linha de base de performance |
 | **ramp.js** | 4 min | 10→150 VUs gradual | Testar autoscaling (HPA) |
-| **spike.js** | 2 min | 10→200 VUs súbito | Resiliência a picos |
+| **spike.js** | 1.5 min | 10→80 VUs súbito | Resiliência a picos (SEM erros) |
 | **soak.js** | 11 min | 50 VUs sustentado | Estabilidade long-term |
+| **stress.js** | 1.5 min | 10→200 VUs | Encontrar limite (PODE ter erros) |
 
 ### Métricas Coletadas
 
@@ -233,8 +234,10 @@ python3 scripts/analyze_results.py
 **Exemplo de Resultados**:
 ```
 Baseline: ~150 req/s, p95 < 25ms, 100% sucesso
-Ramp: HPA escala 1→3 réplicas, p95 < 500ms
-Spike: Taxa erro < 5%, p95 ~2s durante pico
+Ramp: HPA escala 1→3 réplicas, p95 < 500ms, 100% sucesso
+Spike: Pico de 80 VUs, p95 < 1s, 100% sucesso
+Soak: Estável por 11 min, p95 < 10ms, 100% sucesso
+Stress (opcional): 200 VUs, identifica limite máximo (pode ter erros)
 ```
 
 ---

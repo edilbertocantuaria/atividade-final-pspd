@@ -21,8 +21,9 @@ show_usage() {
     echo "  all         - Executar todos os testes (padrão)"
     echo "  baseline    - Apenas teste baseline"
     echo "  ramp        - Apenas teste ramp"
-    echo "  spike       - Apenas teste spike"
+    echo "  spike       - Apenas teste spike (sem erros)"
     echo "  soak        - Apenas teste soak"
+    echo "  stress      - Teste de stress (PODE gerar erros)"
     echo "  monitor     - Monitor em tempo real"
     echo "  analyze     - Gerar gráficos e análise"
     echo ""
@@ -33,6 +34,7 @@ show_usage() {
     echo "Exemplos:"
     echo "  $0              # Todos os testes"
     echo "  $0 baseline     # Apenas baseline"
+    echo "  $0 stress       # Teste extremo (encontra limite)"
     echo "  $0 monitor      # Apenas monitor"
     echo "  BASE_URL=http://192.168.49.2:30080 $0 all"
 }
@@ -116,18 +118,37 @@ run_all_tests() {
     echo "⏳ Aguardando scale-down (60s)..."
     sleep 60
     
-    # Spike
+    # Spike (ajustado para não gerar erros)
     echo ""
-    echo "⚠️  ATENÇÃO: O teste de spike pode causar:"
-    echo "   • Port-forward reiniciar automaticamente"
-    echo "   • Taxa de erro de 10-40% (esperado)"
-    echo "   • Pods demorarem para responder"
-    echo "   Isso é NORMAL e parte do teste de resiliência!"
+    echo "💥 Teste de Spike: Pico súbito de 10→80 VUs"
+    echo "   (Ajustado para evitar erros - testa resiliência com carga moderada)"
     echo ""
     sleep 3
     run_test "spike"
     echo "⏳ Aguardando estabilização (30s)..."
     sleep 30
+    
+    # Stress (opcional - pode gerar erros)
+    echo ""
+    read -t 15 -p "Executar teste de STRESS (10→200 VUs, PODE gerar erros)? [y/N] (auto-skip em 15s) " -n 1 -r
+    RESULT=$?
+    echo
+    if [ $RESULT -eq 0 ] && [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo ""
+        echo "⚠️  TESTE DE STRESS - Encontra o limite máximo do sistema"
+        echo "   • Pode causar taxa de erro até 50%"
+        echo "   • Objetivo: identificar capacidade máxima"
+        echo ""
+        run_test "stress"
+        echo "⏳ Aguardando recuperação (60s)..."
+        sleep 60
+    else
+        if [ $RESULT -gt 128 ]; then
+            echo "⏱️  Timeout - pulando teste de stress"
+        else
+            echo "⏭️  Pulando teste de stress"
+        fi
+    fi
     
     # Soak (opcional)
     echo ""
@@ -249,7 +270,7 @@ case "$COMMAND" in
     all)
         run_all_tests
         ;;
-    baseline|ramp|spike|soak)
+    baseline|ramp|spike|soak|stress)
         check_service
         run_test "$COMMAND"
         ;;
