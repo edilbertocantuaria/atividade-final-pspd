@@ -79,12 +79,19 @@ run_test() {
     mkdir -p "$result_dir"
     capture_k8s_metrics "$test_name" "-pre"
     
+    echo "⏳ Executando teste k6... (output completo em $result_dir/output.txt)"
+    echo ""
+    
+    # Roda k6 em background e mostra apenas progresso
     k6 run --out json="$result_dir/metrics.json" \
         --quiet \
         --no-color \
         --summary-trend-stats="min,avg,med,max,p(90),p(95),p(99)" \
         -e BASE_URL="$BASE_URL" \
-        "$test_file" | tee "$result_dir/output.txt"
+        "$test_file" 2>&1 | tee "$result_dir/output.txt" | grep -E "(running|iterations|data_received|http_req)" || true
+    
+    echo ""
+    echo "📊 Resumo salvo em: $result_dir/output.txt"
     
     capture_k8s_metrics "$test_name" "-post"
     

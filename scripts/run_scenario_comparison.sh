@@ -41,11 +41,13 @@ SCENARIOS=(
 
 # Função para limpar namespace
 cleanup_namespace() {
-    echo -e "${YELLOW}🧹 Limpando namespace pspd...${NC}"
-    kubectl delete namespace pspd --ignore-not-found=true
+    echo -e "${YELLOW}🧹 Limpando namespace...${NC}"
+    kubectl delete namespace pspd --ignore-not-found=true 2>&1 | grep -v "Warning" || true
+    echo "   Aguardando 5s..."
     sleep 5
-    kubectl create namespace pspd
+    kubectl create namespace pspd > /dev/null 2>&1
     sleep 2
+    echo -e "${GREEN}   ✓ Namespace limpo${NC}"
 }
 
 # Função para aplicar cenário
@@ -56,38 +58,38 @@ apply_scenario() {
     
     echo -e "${BLUE}📋 Aplicando Cenário $scenario_num: $scenario_name${NC}"
     
-    kubectl apply -f "$K8S_DIR/namespace.yaml"
+    kubectl apply -f "$K8S_DIR/namespace.yaml" > /dev/null 2>&1
     
     if [ "$scenario_path" == "k8s" ]; then
         # Cenário base (arquivos na raiz do k8s/)
-        kubectl apply -f "$K8S_DIR/a.yaml"
-        kubectl apply -f "$K8S_DIR/b.yaml"
-        kubectl apply -f "$K8S_DIR/p.yaml"
+        kubectl apply -f "$K8S_DIR/a.yaml" > /dev/null 2>&1
+        kubectl apply -f "$K8S_DIR/b.yaml" > /dev/null 2>&1
+        kubectl apply -f "$K8S_DIR/p.yaml" > /dev/null 2>&1
     else
         # Outros cenários (em subpastas)
-        kubectl apply -f "$K8S_DIR/$scenario_path/"
+        kubectl apply -f "$K8S_DIR/$scenario_path/" > /dev/null 2>&1
     fi
+    echo "   ✓ YAMLs aplicados"
     
-    echo "⏳ Aguardando pods ficarem prontos..."
-    kubectl wait --for=condition=ready pod --all -n pspd --timeout=120s || {
-        echo -e "${RED}❌ Pods não ficaram prontos a tempo${NC}"
+    echo "   ⏳ Aguardando pods (max 120s)..."
+    kubectl wait --for=condition=ready pod --all -n pspd --timeout=120s > /dev/null 2>&1 || {
+        echo -e "${RED}   ❌ Pods não ficaram prontos a tempo${NC}"
         kubectl get pods -n pspd
         return 1
     }
     
-    echo -e "${GREEN}✓ Pods prontos${NC}"
-    kubectl get pods -n pspd -o wide
+    echo -e "${GREEN}   ✓ Pods prontos${NC}"
+    echo ""
+    kubectl get pods -n pspd --no-headers | awk '{print "   "$0}'
     
     # Verificar HPA (se existir)
+    echo ""
     if kubectl get hpa -n pspd &>/dev/null; then
-        echo ""
-        echo "📊 HPA Status:"
-        kubectl get hpa -n pspd
+        echo "   📊 HPA configurado:"
+        kubectl get hpa -n pspd --no-headers | awk '{print "      "$0}'
     else
-        echo ""
-        echo "⚠️  HPA não configurado (cenário sem autoscaling)"
+        echo "   ℹ️  Cenário sem HPA (réplicas fixas)"
     fi
-    
     echo ""
 }
 
@@ -99,19 +101,19 @@ run_tests() {
     echo ""
     
     # Port-forward do gateway
-    echo "🔌 Iniciando port-forward..."
+    echo "🔌 Configurando acesso ao gateway..."
     kubectl port-forward -n pspd svc/p-svc 8080:80 > /dev/null 2>&1 &
     PF_PID=$!
     sleep 3
     
     # Verificar se port-forward funcionou
     if ! curl -s -f http://localhost:8080 > /dev/null 2>&1; then
-        echo -e "${RED}❌ Port-forward falhou${NC}"
+        echo -e "${RED}   ❌ Port-forward falhou${NC}"
         kill $PF_PID 2>/dev/null || true
         return 1
     fi
     
-    echo -e "${GREEN}✓ Port-forward ativo (PID: $PF_PID)${NC}"
+    echo -e "${GREEN}   ✓ Gateway acessível em localhost:8080${NC}"
     echo ""
     
     # Executar testes
@@ -134,15 +136,15 @@ save_results() {
     
     if [ -d "$PROJECT_DIR/results" ]; then
         mv "$PROJECT_DIR/results" "$results_dir"
-        echo -e "${GREEN}✓ Resultados salvos em: $results_dir${NC}"
+        echo -e "${GREEN}   ✓ Movido: results/ → $(basename $results_dir)/${NC}"
     else
-        echo -e "${YELLOW}⚠️  Pasta results não encontrada${NC}"
+        echo -e "${YELLOW}   ⚠️  Pasta results não encontrada${NC}"
     fi
     
-    # Salvar configuração do cenário
+    # Salvar configuração do cenário (silencioso)
     kubectl get deploy,svc,hpa -n pspd -o yaml > "$results_dir/k8s-config.yaml" 2>/dev/null || true
     kubectl get pods -n pspd -o wide > "$results_dir/pods-layout.txt" 2>/dev/null || true
-    
+    echo -e "${GREEN}   ✓ Configuração K8s salva${NC}"
     echo ""
 }
 
@@ -183,6 +185,8 @@ show_menu() {
 
 # Função para executar todos os cenários
 run_all_scenarios() {
+    local total_scenarios=5
+    
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║  Executando TODOS os 5 cenários                              ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
@@ -201,7 +205,7 @@ run_all_scenarios() {
         
         echo ""
         echo "═══════════════════════════════════════════════════════════════"
-        echo "  CENÁRIO $num: ${name^^}"
+        echo "  CENÁRIO $num/${total_scenarios}: ${name^^}"
         echo "═══════════════════════════════════════════════════════════════"
         echo ""
         
@@ -211,7 +215,7 @@ run_all_scenarios() {
         save_results "$num" "$name"
         
         echo ""
-        echo -e "${GREEN}✅ Cenário $num concluído!${NC}"
+        echo -e "${GREEN}✅ Cenário $num/${total_scenarios} concluído!${NC}"
         echo ""
         
         # Pausa entre cenários (exceto no último)
