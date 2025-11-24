@@ -1,11 +1,21 @@
 # Projeto Final PSPD - Monitoramento e Observabilidade em Kubernetes
 
-Projeto de pesquisa focado em monitoramento e observabilidade de aplicações baseadas em microserviços em clusters Kubernetes, com ênfase em métricas de desempenho.
+> Projeto de pesquisa focado em monitoramento e observabilidade de aplicações baseadas em microserviços em clusters Kubernetes, com ênfase em métricas de desempenho.
 
-## Arquitetura da Aplicação
+## 📋 Índice
 
-A aplicação segue a arquitetura de microserviços gRPC proposta:
+- [Arquitetura](#-arquitetura)
+- [Quick Start](#-quick-start)
+- [Como Executar](#-como-executar)
+- [Testes de Carga](#-testes-de-carga)
+- [Estrutura do Projeto](#-estrutura-do-projeto)
+- [Troubleshooting](#-troubleshooting)
 
+---
+
+## 🏗️ Arquitetura
+
+### Microserviços gRPC
 ```
 Cliente HTTP → Gateway P (Node.js + Express)
                     ↓ gRPC
@@ -15,235 +25,301 @@ Cliente HTTP → Gateway P (Node.js + Express)
         (Python)     (Python)
 ```
 
-- **Gateway P**: WEB API que recebe requisições HTTP e as distribui via gRPC
-- **Service A**: Microserviço gRPC que responde com mensagens personalizadas
-- **Service B**: Microserviço gRPC que retorna streams de números
+- **Gateway P**: WEB API que recebe requisições HTTP e distribui via gRPC
+- **Service A**: Microserviço gRPC com mensagens personalizadas
+- **Service B**: Microserviço gRPC com streaming de números
 
-## Instrumentação para Observabilidade
+### Instrumentação Prometheus
 
-### Métricas Expostas
+Todos os serviços expõem métricas em `/metrics`:
 
-#### Gateway P (`/metrics` na porta 8080)
-- `http_requests_total`: Total de requisições HTTP (labels: method, route, status_code)
-- `http_request_duration_seconds`: Histograma de latência HTTP
-- `grpc_client_requests_total`: Total de chamadas gRPC feitas
-- `grpc_client_request_duration_seconds`: Latência das chamadas gRPC (por serviço)
-- Métricas padrão Node.js (heap, event loop, etc.)
+**Gateway P (porta 8080)**:
+- `http_requests_total`, `http_request_duration_seconds`
+- `grpc_client_requests_total`, `grpc_client_request_duration_seconds`
 
-#### Service A (porta 9101/metrics)
-- `grpc_server_requests_total`: Total de requisições gRPC recebidas
-- `grpc_server_request_duration_seconds`: Latência do processamento
+**Services A/B (portas 9101/9102)**:
+- `grpc_server_requests_total`, `grpc_server_request_duration_seconds`
+- `grpc_server_stream_items_total` (apenas B)
 
-#### Service B (porta 9102/metrics)
-- `grpc_server_requests_total`: Total de requisições gRPC recebidas
-- `grpc_server_request_duration_seconds`: Latência do processamento
-- `grpc_server_stream_items_total`: Total de itens enviados via streaming
+---
 
-## Estrutura do Projeto
+## 🚀 Quick Start
+
+### Pré-requisitos
+```bash
+# Verificar ferramentas instaladas
+minikube version
+kubectl version --client
+docker --version
+k6 version
+python3 --version
+```
+
+### Setup Completo (5 minutos)
+
+```bash
+# 1. Iniciar cluster
+minikube start --cpus=4 --memory=8192
+minikube addons enable ingress metrics-server
+
+# 2. Build e Deploy
+./scripts/build_images.sh
+./scripts/deploy.sh
+kubectl wait --for=condition=ready pod --all -n pspd --timeout=180s
+
+# 3. Verificar
+kubectl get pods -n pspd        # 3 pods Running
+kubectl get hpa -n pspd         # 3 HPAs criados
+```
+
+---
+
+## 💻 Como Executar
+
+### Execução Automática (Recomendado)
+
+```bash
+# Terminal 1: Port-forward monitorado (auto-restart)
+./scripts/stable_port_forward.sh
+
+# Terminal 2: Executar todos os testes
+BASE_URL=http://localhost:8080 ./scripts/run_all_tests.sh
+
+# Terminal 3 (opcional): Monitorar em tempo real
+./scripts/monitor.sh
+```
+
+### Execução Manual
+
+```bash
+# Terminal 1: Port-forward simples
+kubectl port-forward -n pspd svc/p-svc 8080:80
+
+# Terminal 2: Teste individual
+BASE_URL=http://localhost:8080 k6 run load/baseline.js
+BASE_URL=http://localhost:8080 k6 run load/ramp.js
+BASE_URL=http://localhost:8080 k6 run load/spike.js
+
+# Para teste longo (11 min), use port-forward monitorado
+```
+
+### Gerar Análise
+
+```bash
+# Após executar testes
+python3 scripts/analyze_results.py
+
+# Resultados em:
+# - results/plots/*.png (6 gráficos comparativos)
+# - results/plots/SUMMARY_REPORT.txt
+```
+
+---
+
+## 📊 Testes de Carga
+
+### Cenários Implementados
+
+| Teste | Duração | Carga | Objetivo |
+|-------|---------|-------|----------|
+| **baseline.js** | 2 min | 10 VUs constantes | Linha de base de performance |
+| **ramp.js** | 4 min | 10→150 VUs gradual | Testar autoscaling (HPA) |
+| **spike.js** | 2 min | 10→200 VUs súbito | Resiliência a picos |
+| **soak.js** | 11 min | 50 VUs sustentado | Estabilidade long-term |
+
+### Métricas Coletadas
+
+**Performance**:
+- Latência (p50/p90/p95/p99)
+- Throughput (req/s)
+- Taxa de sucesso/falha
+
+**Infraestrutura**:
+- CPU/Memória por pod
+- Número de réplicas (HPA)
+- Eventos de scaling
+
+**Exemplo de Resultados**:
+```
+Baseline: ~150 req/s, p95 < 25ms, 100% sucesso
+Ramp: HPA escala 1→3 réplicas, p95 < 500ms
+Spike: Taxa erro < 5%, p95 ~2s durante pico
+```
+
+---
+
+## 📁 Estrutura do Projeto
 
 ```
 atividade-final-pspd/
-├── gateway_p_node/          # Gateway HTTP → gRPC
-│   ├── server.js            # Instrumentado com prom-client
-│   ├── package.json
-│   └── Dockerfile
+├── gateway_p_node/          # Gateway HTTP→gRPC (Node.js + prom-client)
 ├── services/
-│   ├── a_py/                # Service A (gRPC)
-│   │   ├── server.py        # Instrumentado com prometheus_client
-│   │   └── Dockerfile
-│   └── b_py/                # Service B (gRPC)
-│       ├── server.py        # Instrumentado com prometheus_client
-│       └── Dockerfile
-├── proto/                   # Definições Protocol Buffers
-│   └── services.proto
-├── k8s/                     # Manifestos Kubernetes
-│   ├── namespace.yaml
-│   ├── p.yaml               # Gateway deployment + service
-│   ├── a.yaml               # Service A deployment + service
-│   ├── b.yaml               # Service B deployment + service
-│   ├── ingress.yaml
+│   ├── a_py/                # Service A (Python + prometheus_client)
+│   └── b_py/                # Service B (Python + prometheus_client)
+├── k8s/
+│   ├── *.yaml               # Deployments, Services
+│   ├── p-nodeport.yaml      # NodePort para acesso estável
 │   └── monitoring/
-│       ├── hpa.yaml         # Horizontal Pod Autoscaler
-│       ├── servicemonitor-p.yaml
-│       └── servicemonitor-services.yaml
-├── load/                    # Testes de carga (k6)
-│   ├── baseline.js          # Teste base (10 VUs, 2min)
-│   ├── ramp.js              # Teste de rampa (10→150 VUs)
-│   ├── spike.js             # Teste de pico (10→200 VUs)
-│   └── soak.js              # Teste de resistência (50 VUs, 10min)
-├── scripts/                 # Scripts de automação
-│   ├── build_images.sh      # Construir imagens Docker
-│   ├── deploy.sh            # Deploy no K8s
-│   ├── run_all_tests.sh     # Executar todos os testes
-│   └── collect_metrics.sh   # Coletar métricas do Prometheus
-└── results/                 # Resultados dos testes
-    └── README.md
+│       ├── hpa.yaml         # Autoscaling (CPU 70%, Memory 80%)
+│       └── servicemonitor-*.yaml  # Prometheus ServiceMonitors
+├── load/                    # 4 cenários k6
+├── scripts/
+│   ├── build_images.sh      # Build Docker
+│   ├── deploy.sh            # Deploy K8s
+│   ├── run_all_tests.sh     # Suite completa
+│   ├── stable_port_forward.sh  # Port-forward com auto-restart
+│   ├── monitor.sh           # Dashboard tempo real
+│   └── analyze_results.py   # Gerar gráficos
+├── results/
+│   ├── baseline/            # Resultados baseline
+│   ├── ramp/                # Resultados ramp
+│   ├── spike/               # Resultados spike
+│   ├── soak/                # Resultados soak
+│   └── plots/               # Gráficos + relatório
+└── README.md                # Este arquivo
 ```
 
-## Pré-requisitos
+---
 
-### Software Necessário
-- Docker
-- Kubernetes (minikube, kind, ou cluster multi-node)
-- kubectl
-- k6 (ferramenta de teste de carga)
-- Prometheus Operator (instalado no cluster)
+## 🔧 Troubleshooting
 
-### Instalação do Prometheus Operator
+### Port-forward cai durante testes
 
+**Problema**: `connection reset by peer` em testes longos
+
+**Solução**:
 ```bash
-# Usando Helm
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm repo update
-helm install prometheus prometheus-community/kube-prometheus-stack \
-  --namespace monitoring --create-namespace
+# Usar port-forward monitorado (reinicia automaticamente)
+./scripts/stable_port_forward.sh
 ```
 
-## Quick Start
+### HPA mostra `<unknown>` em TARGETS
 
-### 1. Construir Imagens Docker
+**Normal** logo após deploy. Aguardar 30-60s para metrics-server coletar dados.
 
 ```bash
+# Forçar coleta
+kubectl top pods -n pspd
+kubectl get hpa -n pspd  # Verificar novamente
+```
+
+### Pods não iniciam
+
+```bash
+# Ver logs
+kubectl logs -n pspd <pod-name>
+
+# Ver eventos
+kubectl describe pod -n pspd <pod-name>
+
+# Rebuild e redeploy
 ./scripts/build_images.sh
+kubectl rollout restart deployment -n pspd p-deploy a-deploy b-deploy
 ```
 
-### 2. Deploy no Kubernetes
+### k6 não encontrado
 
 ```bash
-./scripts/deploy.sh
+# Ubuntu/Debian
+sudo gpg -k
+sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+  --keyserver hkp://keyserver.ubuntu.com:80 \
+  --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
+  | sudo tee /etc/apt/sources.list.d/k6.list
+sudo apt-get update
+sudo apt-get install k6
 ```
 
-### 3. Aplicar Configurações de Monitoramento
+### Verificar conectividade
 
 ```bash
-kubectl apply -f k8s/monitoring/
+# Executar guia de diagnóstico
+./COMO_EXECUTAR.sh
+
+# Deve mostrar:
+# ✅ Gateway respondendo
+# ✅ Métricas Prometheus expostas
 ```
 
-### 4. Verificar Pods
+---
 
-```bash
-kubectl get pods -n pspd
-kubectl get servicemonitor -n monitoring
-kubectl get hpa -n pspd
-```
+## 📈 Análise de Resultados
 
-### 5. Expor Serviços para Teste
-
-```bash
-# Gateway P
-kubectl port-forward -n pspd svc/p-svc 8080:80
-
-# Prometheus (se necessário)
-kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090
-```
-
-### 6. Executar Testes de Carga
-
-```bash
-# Todos os testes
-BASE_URL=http://localhost:8080 ./scripts/run_all_tests.sh
-
-# Ou teste individual
-k6 run -e BASE_URL=http://localhost:8080 load/baseline.js
-```
-
-## Cenários de Teste Propostos
-
-### 1. **Baseline** (Configuração Base)
-- 1 réplica de cada serviço (P, A, B)
-- Sem autoscaling
-- Teste: `baseline.js` (10 VUs, 2min)
-- **Objetivo**: Estabelecer linha de base de desempenho
-
-### 2. **Escala Horizontal do Gateway**
-- Aumentar réplicas do Gateway P (2, 3, 5)
-- A e B mantêm 1 réplica
-- Teste: `ramp.js`
-- **Objetivo**: Identificar impacto do scaling no frontend
-
-### 3. **Escala dos Serviços Backend**
-- Aumentar réplicas de A e B (2, 3)
-- Gateway P mantém 1 réplica
-- Teste: `ramp.js`
-- **Objetivo**: Avaliar benefício de escalar serviços gRPC
-
-### 4. **Autoscaling Ativo**
-- Aplicar HPAs (CPU 70%)
-- Teste: `spike.js` (10→200 VUs)
-- **Objetivo**: Observar elasticidade automática e tempo de resposta
-
-### 5. **Distribuição Multi-Node** (requer cluster real)
-- P em node1, A em node2, B em node3
-- Usar nodeAffinity/nodeSelector
-- Teste: `baseline.js` e `ramp.js`
-- **Objetivo**: Comparar latência de rede inter-node
-
-### 6. **Resource Limits Agressivos**
-- Reduzir limits de CPU/memória
-- Teste: `soak.js`
-- **Objetivo**: Observar throttling e impacto em latência
-
-### 7. **Teste de Resiliência**
-- Deletar pod durante teste
-- Observar restarts e recuperação
-- **Objetivo**: Medir impacto de falhas em SLOs
-
-## Métricas a Observar
-
-### Performance
-- **Latência p50/p95/p99**: Tempo de resposta sob diferentes percentis
-- **Throughput**: Requisições por segundo (`rate(http_requests_total[1m])`)
-- **Taxa de Erro**: Percentual de requisições falhadas
-
-### Infraestrutura
-- **CPU/Memória**: Uso de recursos por pod
-- **Restarts**: Número de reinicializações de containers
-- **Réplicas**: Quantidade de pods ativos (autoscaling)
-
-### Aplicação
-- **Latência gRPC**: Tempo de resposta dos serviços A e B
-- **Distribuição de Carga**: Requests distribuídos entre réplicas
-
-## Queries PromQL Úteis
+### Queries PromQL Úteis
 
 ```promql
-# Throughput total
+# Throughput
 rate(http_requests_total[1m])
 
-# Latência p95 HTTP
+# Latência p95
 histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[1m]))
-
-# Latência p99 gRPC
-histogram_quantile(0.99, rate(grpc_client_request_duration_seconds_bucket[1m]))
 
 # Taxa de erro
 rate(http_requests_total{status_code=~"5.."}[1m]) / rate(http_requests_total[1m])
 
 # CPU por pod
 rate(container_cpu_usage_seconds_total{namespace="pspd"}[1m])
-
-# Memória por pod
-container_memory_working_set_bytes{namespace="pspd"}
 ```
 
-## Próximos Passos
+### Gráficos Gerados
 
-1. **Setup do Cluster**: Configurar cluster K8s multi-node
-2. **Instalação do Prometheus**: Deploy do Prometheus Operator
-3. **Validação Base**: Executar teste baseline e validar coleta de métricas
-4. **Execução de Cenários**: Implementar e testar cada cenário proposto
-5. **Coleta de Dados**: Capturar métricas de cada cenário via Prometheus
-6. **Análise Comparativa**: Gerar gráficos e relatórios comparando cenários
-7. **Documentação**: Consolidar resultados em relatório final
+Após `python3 scripts/analyze_results.py`:
 
-## Referências
+1. `01_latency_comparison.png` - Latências médias/p90/p95
+2. `02_throughput_comparison.png` - Req/s + total de requisições
+3. `03_success_rate.png` - Taxa de sucesso vs falha
+4. `04_hpa_scaling.png` - Evolução de réplicas (P, A, B)
+5. `05_resource_usage.png` - CPU e memória
+6. `06_latency_percentiles.png` - Distribuição completa
+
+---
+
+## 🎯 Próximos Passos (Trabalho Acadêmico)
+
+Para atender completamente a especificação do projeto:
+
+### ❌ Falta Implementar
+
+1. **Cluster Multi-Node** (CRÍTICO)
+   - Especificação requer: 1 master + 2 workers
+   - Atual: Minikube single-node
+   - Ação: Migrar para kubeadm, kind multi-node, ou cluster cloud
+
+2. **Prometheus Instalado no K8s** (CRÍTICO)
+   - ServiceMonitors criados mas Prometheus não instalado
+   - Ação: `helm install prometheus-community/kube-prometheus-stack`
+
+3. **Interface Web de Monitoramento** (CRÍTICO)
+   - Grafana com dashboards customizados
+   - Ou Kubernetes Dashboard
+
+4. **Cenários Comparativos Expandidos**
+   - Variar: réplicas, recursos, distribuição multi-node
+   - Documentar conclusões de cada cenário
+
+### ✅ Já Implementado
+
+- ✅ Aplicação gRPC (Gateway P + Service A + Service B)
+- ✅ Instrumentação Prometheus completa
+- ✅ Testes de carga (4 cenários)
+- ✅ HPA (autoscaling)
+- ✅ Scripts de automação
+- ✅ Análise comparativa com gráficos
+
+---
+
+## 📚 Referências
 
 - [Prometheus Best Practices](https://prometheus.io/docs/practices/)
 - [k6 Load Testing](https://k6.io/docs/)
-- [Kubernetes Autoscaling](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/)
+- [Kubernetes HPA](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/)
 - [gRPC Observability](https://grpc.io/docs/guides/monitoring/)
 
-## Autores
+---
 
-Projeto desenvolvido para a disciplina PSPD - Programação para Sistemas Paralelos e Distribuídos.
-# atividade-final-pspd
+## 👥 Autores
+
+Projeto desenvolvido para a disciplina **PSPD - Programação para Sistemas Paralelos e Distribuídos**.
+
+**Repositório**: [github.com/edilbertocantuaria/atividade-final-pspd](https://github.com/edilbertocantuaria/atividade-final-pspd)
