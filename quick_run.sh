@@ -59,10 +59,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 if ! kubectl get namespace pspd &> /dev/null; then
     echo -e "${YELLOW}⚠ Namespace pspd não existe. Executando deploy...${NC}"
-    ./scripts/build_images.sh
-    ./scripts/deploy.sh
-    echo "⏳ Aguardando pods ficarem prontos..."
-    kubectl wait --for=condition=ready pod --all -n pspd --timeout=180s
+    ./scripts/deploy.sh setup
     echo -e "${GREEN}✓ Deploy concluído${NC}"
 else
     PODS_READY=$(kubectl get pods -n pspd --no-headers 2>/dev/null | grep -c "Running" || echo "0")
@@ -70,11 +67,9 @@ else
         echo -e "${GREEN}✓ Todos os pods estão rodando ($PODS_READY/3)${NC}"
     else
         echo -e "${YELLOW}⚠ Pods não estão todos prontos. Recriando deployment...${NC}"
-        kubectl delete namespace pspd --ignore-not-found=true
+        ./scripts/deploy.sh clean
         sleep 5
-        ./scripts/build_images.sh
-        ./scripts/deploy.sh
-        kubectl wait --for=condition=ready pod --all -n pspd --timeout=180s
+        ./scripts/deploy.sh setup
         echo -e "${GREEN}✓ Deploy concluído${NC}"
     fi
 fi
@@ -133,11 +128,11 @@ echo ""
 if [[ $REPLY =~ ^[SsYy]$ ]]; then
     echo "🚀 Iniciando suite de testes..."
     echo ""
-    echo -e "${YELLOW}💡 Dica: Abra outro terminal e execute './scripts/monitor.sh' para acompanhar em tempo real${NC}"
+    echo -e "${YELLOW}💡 Dica: Abra outro terminal e execute './scripts/run_all_tests.sh monitor' para acompanhar em tempo real${NC}"
     echo ""
     sleep 3
     
-    BASE_URL=http://localhost:8080 ./scripts/run_all_tests.sh
+    BASE_URL=http://localhost:8080 ./scripts/run_all_tests.sh all
     
     echo ""
     echo -e "${GREEN}✓ Testes concluídos${NC}"
@@ -152,7 +147,7 @@ echo "📈 6. Gerando análise e gráficos..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 if [ -f "results/baseline/output.txt" ]; then
-    python3 scripts/analyze_results.py
+    ./scripts/run_all_tests.sh analyze
     echo ""
     echo -e "${GREEN}✓ Análise gerada${NC}"
     echo ""
@@ -180,10 +175,13 @@ echo ""
 echo "🛑 Para parar o port-forward: kill $PF_PID"
 echo "🛑 Para parar o cluster: minikube stop"
 echo ""
-echo "📖 Documentação disponível em:"
-echo "   • README.md - Visão geral do projeto"
-echo "   • EXECUCAO_COMPLETA.md - Guia passo a passo detalhado"
-echo "   • GUIA_EXECUCAO_TESTES.md - Detalhes dos testes"
+echo "📖 Documentação:"
+echo "   • README.md - Documentação completa do projeto"
+echo "   • ./COMO_EXECUTAR.sh - Verificação rápida e guia de uso"
+echo ""
+echo "💡 Comandos úteis:"
+echo "   • ./scripts/deploy.sh --help - Ver opções de deploy"
+echo "   • ./scripts/run_all_tests.sh --help - Ver opções de testes"
 echo ""
 
 if [ -f "results/plots/SUMMARY_REPORT.txt" ]; then
