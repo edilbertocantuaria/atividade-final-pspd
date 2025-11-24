@@ -8,50 +8,50 @@
 ──────────────────────────────────────────────────────────────────────
 
 📊 Métricas de Performance (k6):
-  • Throughput: 140.94 req/s
-  • Total de requisições: 14,102
-  • Latência média: 6.66 ms
-  • Latência p95: 14.34 ms
+  • Throughput: 115.19 req/s
+  • Total de requisições: 11,528
+  • Latência média: 18.82 ms
+  • Latência p95: 73.83 ms
   • Taxa de sucesso: 100.00%
   • Taxa de falha: 0.00%
   • VUs máximos: 10
-  • Iterações: 7,051
+  • Iterações: 5,764
 
 💻 Uso de Recursos:
   • service-a:
-      CPU: 76m
-      Memory: 43Mi
+      CPU: 77m
+      Memory: 42Mi
   • service-b:
-      CPU: 159m
-      Memory: 33Mi
+      CPU: 156m
+      Memory: 38Mi
   • gateway-p:
-      CPU: 155m
-      Memory: 28Mi
+      CPU: 357m
+      Memory: 74Mi
 
 ──────────────────────────────────────────────────────────────────────
   RAMP
 ──────────────────────────────────────────────────────────────────────
 
 📊 Métricas de Performance (k6):
-  • Throughput: 45.14 req/s
-  • Total de requisições: 31,744
-  • Latência média: 1.60 ms
-  • Latência p95: 1.02 ms
-  • Taxa de sucesso: 100.00%
-  • Taxa de falha: 0.00%
+  • Throughput: 47.69 req/s
+  • Total de requisições: 12,814
+  • Latência média: 1.18 ms
+  • Latência p95: 311.54 ms
+  • Taxa de sucesso: 96.26%
+  • Taxa de falha: 3.73%
   • VUs máximos: 150
-  • Iterações: 15,872
+  • Iterações: 6,373
 
 💻 Uso de Recursos:
   • service-a:
-      CPU: 99m
-      Memory: 43Mi
+      CPU: 1m
+      Memory: 38Mi
   • service-b:
-      CPU: 83m
-      Memory: 29Mi
+      CPU: 1m
+      Memory: 36Mi
   • gateway-p:
-      CPU: 90m
-      Memory: 22Mi
+      CPU: 5m
+      Memory: 48Mi
 
 ──────────────────────────────────────────────────────────────────────
   SOAK
@@ -83,25 +83,25 @@
 ──────────────────────────────────────────────────────────────────────
 
 📊 Métricas de Performance (k6):
-  • Throughput: 257.73 req/s
-  • Total de requisições: 18,046
-  • Latência média: 891.86 ms
-  • Latência p95: 1.25 ms
+  • Throughput: 8.57 req/s
+  • Total de requisições: 810
+  • Latência média: 30.01 ms
+  • Latência p95: 30.01 ms
   • Taxa de sucesso: 0.00%
-  • Taxa de falha: 0.00%
+  • Taxa de falha: 100.00%
   • VUs máximos: 200
-  • Iterações: 9,023
+  • Iterações: 405
 
 💻 Uso de Recursos:
   • service-a:
-      CPU: 62m
-      Memory: 34Mi
+      CPU: 1m
+      Memory: 38Mi
   • service-b:
-      CPU: 63m
-      Memory: 29Mi
+      CPU: 1m
+      Memory: 36Mi
   • gateway-p:
-      CPU: 130m
-      Memory: 25Mi
+      CPU: 6m
+      Memory: 49Mi
 
 ══════════════════════════════════════════════════════════════════════
   FIM DO RELATÓRIO

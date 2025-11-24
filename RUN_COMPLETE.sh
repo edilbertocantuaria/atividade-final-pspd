@@ -1,168 +1,212 @@
 #!/bin/bash
-# Guia de Execução Completa - Cluster Multi-Node + Prometheus + Grafana
+# Execução completa com sistema de checkpoints
+# Permite continuar de onde parou em caso de erro
+
+CHECKPOINT_FILE="/tmp/pspd_checkpoint.txt"
+
+# Cores
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+# Funções de checkpoint
+save_checkpoint() {
+    echo "$1" > "$CHECKPOINT_FILE"
+    echo -e "${GREEN}✓ Checkpoint salvo: Etapa $1 concluída${NC}"
+}
+
+load_checkpoint() {
+    if [ -f "$CHECKPOINT_FILE" ]; then
+        cat "$CHECKPOINT_FILE"
+    else
+        echo "0"
+    fi
+}
+
+clear_checkpoint() {
+    rm -f "$CHECKPOINT_FILE"
+}
 
 echo "╔══════════════════════════════════════════════════════════════╗"
 echo "║  Execução Completa - Cluster Multi-Node + Monitoramento      ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo ""
-echo "Este guia executará automaticamente:"
-echo "  1. Cluster multi-node (1 master + 2 workers)"
-echo "  2. Prometheus + Grafana"
-echo "  3. Deploy das aplicações"
-echo "  4. Configuração de ServiceMonitors"
-echo "  5. Testes de carga"
-echo ""
-echo "⏱️  Tempo estimado: 15-20 minutos"
-echo ""
 
-read -p "Deseja continuar? [S/n] " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[SsYy]$ ]] && [[ -n $REPLY ]]; then
-    echo "❌ Cancelado"
-    exit 0
+# Verificar checkpoint existente
+CURRENT_STEP=$(load_checkpoint)
+
+if [ "$CURRENT_STEP" != "0" ]; then
+    echo -e "${YELLOW}📍 Checkpoint encontrado! Última etapa concluída: $CURRENT_STEP/5${NC}"
+    echo ""
+    echo "Opções:"
+    echo "  1. ✅ Continuar de onde parou (Etapa $((CURRENT_STEP + 1)))"
+    echo "  2. 🔄 Recomeçar do zero"
+    echo "  3. ❌ Cancelar"
+    echo ""
+    read -p "Escolha [1/2/3]: " -n 1 -r
+    echo
+    case $REPLY in
+        1)
+            START_STEP=$((CURRENT_STEP + 1))
+            echo -e "${GREEN}✓ Continuando da etapa $START_STEP${NC}"
+            ;;
+        2)
+            clear_checkpoint
+            START_STEP=1
+            echo -e "${YELLOW}⚠️  Reiniciando do zero...${NC}"
+            ;;
+        *)
+            echo "❌ Cancelado"
+            exit 0
+            ;;
+    esac
+else
+    echo "Este guia executará automaticamente:"
+    echo "  1. 🏗️  Cluster multi-node (1 master + 2 workers)"
+    echo "  2. 📦 Deploy das aplicações"
+    echo "  3. 📊 Configuração de ServiceMonitors"
+    echo "  4. 🔗 Port-forwards (Gateway, Grafana, Prometheus)"
+    echo "  5. 🧪 Testes de carga"
+    echo ""
+    echo "⏱️  Tempo estimado: 15-20 minutos"
+    echo "💡 Em caso de erro, você pode continuar de onde parou!"
+    echo ""
+    read -p "Deseja continuar? [S/n] " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[SsYy]$ ]] && [[ -n $REPLY ]]; then
+        echo "❌ Cancelado"
+        exit 0
+    fi
+    START_STEP=1
 fi
 
 set -e
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📋 Passo 1/5: Criando cluster multi-node..."
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-./scripts/setup_multinode_cluster.sh
-
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📦 Passo 2/5: Deploy das aplicações..."
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-./scripts/deploy.sh setup
-
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📊 Passo 3/5: Configurando ServiceMonitors..."
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-./scripts/deploy.sh monitoring
-
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🔗 Passo 4/5: Iniciando port-forwards..."
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-# Port-forward Gateway P
-kubectl port-forward -n pspd svc/p-svc 8080:80 > /tmp/pf_gateway.log 2>&1 &
-PF_GATEWAY=$!
-
-# Port-forward Grafana
-kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80 > /tmp/pf_grafana.log 2>&1 &
-PF_GRAFANA=$!
-
-# Port-forward Prometheus
-kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090 > /tmp/pf_prometheus.log 2>&1 &
-PF_PROMETHEUS=$!
-
-sleep 5
-
-echo -e "${GREEN}✓ Port-forwards ativos${NC}"
-echo "  Gateway P:   http://localhost:8080"
-echo "  Grafana:     http://localhost:3000 (admin/admin)"
-echo "  Prometheus:  http://localhost:9090"
-
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🧪 Passo 5/5: Executando testes de carga..."
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-echo "Executando testes (baseline, ramp, spike)..."
-echo "O teste soak (11 min) será pulado automaticamente em 30s."
-echo ""
-
-BASE_URL=http://localhost:8080 ./scripts/run_all_tests.sh all
-
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📊 Gerando análise e gráficos..."
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-./scripts/run_all_tests.sh analyze
-
-echo ""
-echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║  ✅ Setup Completo Concluído!                                ║"
-echo "╚══════════════════════════════════════════════════════════════╝"
-echo ""
-echo "📊 Status do Cluster:"
-echo "─────────────────────────────────────────────────────────────"
-kubectl get nodes
-echo ""
-kubectl get pods -n pspd
-echo ""
-kubectl get pods -n monitoring | grep -E "(prometheus-kube|grafana)"
-echo ""
-
-echo "🔗 Interfaces Web Disponíveis:"
-echo "─────────────────────────────────────────────────────────────"
-echo "  Gateway P:   http://localhost:8080"
-echo "  Grafana:     http://localhost:3000"
-echo "               User: admin | Password: admin"
-echo "               Dashboard: Importar k8s/monitoring/grafana-dashboard.json"
-echo ""
-echo "  Prometheus:  http://localhost:9090"
-echo "               Query: rate(http_requests_total{namespace=\"pspd\"}[1m])"
-echo ""
-
-echo "📈 Resultados dos Testes:"
-echo "─────────────────────────────────────────────────────────────"
-if [ -f results/plots/SUMMARY_REPORT.txt ]; then
-    head -20 results/plots/SUMMARY_REPORT.txt
+# Passo 1: Criar cluster
+if [ $START_STEP -le 1 ]; then
     echo ""
-    echo "   (Ver relatório completo: results/plots/SUMMARY_REPORT.txt)"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "📋 Passo 1/5: Criando cluster multi-node..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    ./scripts/setup_multinode_cluster.sh
+    save_checkpoint "1"
+else
+    echo -e "${BLUE}⏭️  Pulando Passo 1/5 (já concluído)${NC}"
 fi
-echo ""
 
-echo "📂 Gráficos Gerados:"
-echo "─────────────────────────────────────────────────────────────"
-ls -lh results/plots/*.png 2>/dev/null || echo "  Nenhum gráfico gerado ainda"
-echo ""
+# Passo 2: Deploy aplicações
+if [ $START_STEP -le 2 ]; then
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "📦 Passo 2/5: Deploy das aplicações..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    ./scripts/deploy.sh setup
+    save_checkpoint "2"
+else
+    echo -e "${BLUE}⏭️  Pulando Passo 2/5 (já concluído)${NC}"
+fi
 
-echo "💡 Próximos Passos:"
-echo "─────────────────────────────────────────────────────────────"
-echo "  1. Acessar Grafana e importar dashboard:"
-echo "     http://localhost:3000 → + → Import → Upload k8s/monitoring/grafana-dashboard.json"
-echo ""
-echo "  2. Explorar métricas no Prometheus:"
-echo "     http://localhost:9090 → Graph"
-echo ""
-echo "  3. Ver análise completa:"
-echo "     cat results/plots/SUMMARY_REPORT.txt"
-echo ""
-echo "  4. Executar teste soak (11 min):"
-echo "     BASE_URL=http://localhost:8080 ./scripts/run_all_tests.sh soak"
-echo ""
+# Passo 3: Configurar ServiceMonitors
+if [ $START_STEP -le 3 ]; then
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "📊 Passo 3/5: Configurando ServiceMonitors..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    ./scripts/deploy.sh monitoring
+    save_checkpoint "3"
+else
+    echo -e "${BLUE}⏭️  Pulando Passo 3/5 (já concluído)${NC}"
+fi
 
-echo "🛑 Para parar:"
-echo "─────────────────────────────────────────────────────────────"
-echo "  Port-forwards: kill $PF_GATEWAY $PF_GRAFANA $PF_PROMETHEUS"
-echo "  Cluster:       minikube stop -p pspd-cluster"
-echo "  Deletar tudo:  minikube delete -p pspd-cluster"
-echo ""
+# Passo 4: Iniciar port-forwards
+if [ $START_STEP -le 4 ]; then
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🔗 Passo 4/5: Iniciando port-forwards..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    # Limpar port-forwards antigos
+    pkill -f "kubectl port-forward" 2>/dev/null || true
+    sleep 2
+    
+    # Port-forward Gateway P
+    kubectl port-forward -n pspd svc/p-svc 8080:80 > /tmp/pf_gateway.log 2>&1 &
+    PF_GATEWAY=$!
+    
+    # Port-forward Grafana
+    kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80 > /tmp/pf_grafana.log 2>&1 &
+    PF_GRAFANA=$!
+    
+    # Port-forward Prometheus
+    kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090 > /tmp/pf_prometheus.log 2>&1 &
+    PF_PROMETHEUS=$!
+    
+    sleep 5
+    
+    echo ""
+    echo -e "${GREEN}✓ Port-forwards ativos:${NC}"
+    echo "  Gateway P:   http://localhost:8080"
+    echo "  Grafana:     http://localhost:3000 (admin/admin)"
+    echo "  Prometheus:  http://localhost:9090"
+    
+    save_checkpoint "4"
+else
+    echo -e "${BLUE}⏭️  Pulando Passo 4/5 (já concluído)${NC}"
+    echo ""
+    echo "💡 Interfaces disponíveis:"
+    echo "  Gateway P:   http://localhost:8080"
+    echo "  Grafana:     http://localhost:3000"
+    echo "  Prometheus:  http://localhost:9090"
+fi
 
-echo "📖 Documentação:"
-echo "─────────────────────────────────────────────────────────────"
-echo "  README.md         - Visão geral e quick start"
-echo "  GUIA_MULTINODE.md - Guia detalhado multi-node"
-echo ""
+# Passo 5: Executar testes
+if [ $START_STEP -le 5 ]; then
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🧪 Passo 5/5: Executando testes de carga..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "⏳ Aguardando 10s para estabilização..."
+    sleep 10
+    
+    ./scripts/run_all_tests.sh all
+    
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "📈 Passo 6/5: Gerando análises..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    python3 scripts/analyze_results.py
+    
+    save_checkpoint "5"
+else
+    echo -e "${BLUE}⏭️  Pulando Passo 5/5 (já concluído)${NC}"
+fi
 
+echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║  🎉 Projeto PSPD - 100% Funcional!                           ║"
-echo "║                                                               ║"
-echo "║  ✅ Cluster Multi-Node (1 master + 2 workers)                ║"
-echo "║  ✅ Prometheus instalado e coletando métricas                ║"
-echo "║  ✅ Grafana com dashboard customizado                        ║"
-echo "║  ✅ Aplicações rodando e instrumentadas                      ║"
-echo "║  ✅ Testes de carga executados                               ║"
-echo "║  ✅ Análise de resultados gerada                             ║"
+echo "║  ✅ EXECUÇÃO COMPLETA FINALIZADA COM SUCESSO!                ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo ""
+echo "📊 Recursos disponíveis:"
+echo "  • Cluster:     minikube -p pspd-cluster"
+echo "  • Pods:        kubectl get pods -n pspd"
+echo "  • Monitoring:  kubectl get pods -n monitoring"
+echo "  • Gateway:     http://localhost:8080"
+echo "  • Grafana:     http://localhost:3000 (admin/admin)"
+echo "  • Prometheus:  http://localhost:9090"
+echo "  • Resultados:  ./results/"
+echo ""
+echo "🎯 Próximos passos:"
+echo "  1. Importar dashboard do Grafana: k8s/monitoring/grafana-dashboard.json"
+echo "  2. Verificar métricas no Prometheus"
+echo "  3. Analisar gráficos em: results/"
+echo ""
+echo "🛑 Para parar:"
+echo "  • Port-forwards: pkill -f 'kubectl port-forward'"
+echo "  • Cluster:       minikube stop -p pspd-cluster"
+echo "  • Limpar tudo:   minikube delete -p pspd-cluster"
+echo ""
+
+clear_checkpoint

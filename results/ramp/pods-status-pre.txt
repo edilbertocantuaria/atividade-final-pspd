@@ -1,10 +1,11 @@
-NAME                        READY   STATUS    RESTARTS   AGE    IP            NODE       NOMINATED NODE   READINESS GATES
-a-deploy-766ffc4fc9-h5c66   1/1     Running   0          172m   10.244.0.7    minikube   <none>           <none>
-b-deploy-5b5c9d8466-5rrtp   1/1     Running   0          47s    10.244.0.50   minikube   <none>           <none>
-b-deploy-5b5c9d8466-8fznw   1/1     Running   0          47s    10.244.0.49   minikube   <none>           <none>
-b-deploy-5b5c9d8466-zmwd8   1/1     Running   0          172m   10.244.0.8    minikube   <none>           <none>
-p-deploy-6679b7fdc6-2zdjq   1/1     Running   0          46s    10.244.0.52   minikube   <none>           <none>
-p-deploy-6679b7fdc6-64b4h   1/1     Running   0          46s    10.244.0.51   minikube   <none>           <none>
-p-deploy-6679b7fdc6-hkfv4   1/1     Running   0          31s    10.244.0.54   minikube   <none>           <none>
-p-deploy-6679b7fdc6-lgjgf   1/1     Running   0          55m    10.244.0.38   minikube   <none>           <none>
-p-deploy-6679b7fdc6-v6sld   1/1     Running   0          31s    10.244.0.53   minikube   <none>           <none>
+NAME                        READY   STATUS    RESTARTS   AGE     IP            NODE               NOMINATED NODE   READINESS GATES
+a-deploy-766ffc4fc9-zvstr   1/1     Running   0          2m44s   10.244.4.5    pspd-cluster-m03   <none>           <none>
+b-deploy-5b5c9d8466-h6nl2   1/1     Running   0          2m43s   10.244.4.6    pspd-cluster-m03   <none>           <none>
+b-deploy-5b5c9d8466-js7jl   1/1     Running   0          72s     10.244.2.8    pspd-cluster-m02   <none>           <none>
+b-deploy-5b5c9d8466-qndrh   1/1     Running   0          71s     10.244.4.7    pspd-cluster-m03   <none>           <none>
+p-deploy-6679b7fdc6-bt7lr   1/1     Running   0          72s     10.244.4.9    pspd-cluster-m03   <none>           <none>
+p-deploy-6679b7fdc6-cff55   1/1     Running   0          2m43s   10.244.2.7    pspd-cluster-m02   <none>           <none>
+p-deploy-6679b7fdc6-hvjft   1/1     Running   0          71s     10.244.4.8    pspd-cluster-m03   <none>           <none>
+p-deploy-6679b7fdc6-r88qg   1/1     Running   0          56s     10.244.2.10   pspd-cluster-m02   <none>           <none>
+p-deploy-6679b7fdc6-vskgv   1/1     Running   0          56s     10.244.4.10   pspd-cluster-m03   <none>           <none>
+p-deploy-6679b7fdc6-zkvx5   1/1     Running   0          57s     10.244.2.9    pspd-cluster-m02   <none>           <none>

@@ -44,12 +44,9 @@ build_images() {
     # Detectar perfil do minikube
     MINIKUBE_PROFILE=$(kubectl config current-context 2>/dev/null || echo "minikube")
     
-    echo "Construindo imagens dentro do ambiente Docker do minikube..."
+    echo "Construindo imagens localmente..."
     
-    # Configurar ambiente Docker do minikube
-    eval $(minikube -p $MINIKUBE_PROFILE docker-env)
-    
-    # Construir imagens diretamente no Docker do minikube
+    # Construir imagens localmente
     docker build -t a-service:local "$PROJECT_DIR/services/a_py"
     echo -e "${GREEN}✓ Service A construído${NC}"
     
@@ -59,12 +56,20 @@ build_images() {
     docker build -t p-gateway:local "$PROJECT_DIR/gateway_p_node"
     echo -e "${GREEN}✓ Gateway P construído${NC}"
     
-    # Resetar ambiente Docker
-    eval $(minikube -p $MINIKUBE_PROFILE docker-env -u)
+    echo ""
+    echo "📤 Carregando imagens nos nós do cluster..."
+    
+    # Obter lista de nós
+    NODES=$(kubectl get nodes -o jsonpath='{.items[*].metadata.name}')
+    
+    # Carregar cada imagem em cada nó
+    for IMAGE in "a-service:local" "b-service:local" "p-gateway:local"; do
+        echo "  Carregando $IMAGE..."
+        minikube -p $MINIKUBE_PROFILE image load $IMAGE
+    done
     
     echo ""
-    echo -e "${GREEN}✓ Imagens construídas no Docker do minikube${NC}"
-    echo -e "${YELLOW}⚠️  Imagens disponíveis em todos os nós do cluster${NC}"
+    echo -e "${GREEN}✓ Imagens carregadas em todos os nós do cluster${NC}"
     echo ""
 }
 

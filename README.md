@@ -7,6 +7,7 @@
 - [Arquitetura](#-arquitetura)
 - [Setup Multi-Node](#-setup-multi-node-novo)
 - [Quick Start](#-quick-start)
+- [Sistema de Checkpoints](#-sistema-de-checkpoints-novo)
 - [Como Executar](#-como-executar)
 - [Testes de Carga](#-testes-de-carga)
 - [Monitoramento](#-monitoramento)
@@ -99,6 +100,43 @@ Ver documentação detalhada em: **[GUIA_MULTINODE.md](GUIA_MULTINODE.md)**
 
 ## 🚀 Quick Start
 
+### Execução Completa Automatizada ⚡
+
+```bash
+# Uma linha - setup completo!
+./RUN_COMPLETE.sh
+
+# ✅ Cria cluster multi-node (1 master + 2 workers)
+# ✅ Instala Prometheus + Grafana
+# ✅ Deploy das aplicações
+# ✅ Configura ServiceMonitors
+# ✅ Executa testes de carga
+# ✅ Gera análises e gráficos
+# ⏱️  Tempo total: 15-20 minutos
+```
+
+### 🔄 Sistema de Checkpoints (NOVO!)
+
+Se algo der erro, **não precisa recomeçar do zero**!
+
+```bash
+./RUN_COMPLETE.sh
+
+# Se der erro, execute novamente:
+./RUN_COMPLETE.sh
+
+# 📍 Checkpoint encontrado! Última etapa concluída: 2/5
+# 
+# Opções:
+#   1. ✅ Continuar de onde parou (Etapa 3)
+#   2. 🔄 Recomeçar do zero
+#   3. ❌ Cancelar
+
+# Escolha "1" e economize tempo! 🚀
+```
+
+📖 **Guia completo**: [COMO_CONTINUAR.md](./COMO_CONTINUAR.md)
+
 ### Pré-requisitos
 ```bash
 # Verificar ferramentas instaladas
@@ -109,21 +147,20 @@ k6 version
 python3 --version
 ```
 
-### Setup Completo (5 minutos)
+### Setup Manual (se preferir controle total)
 
 ```bash
-# 1. Iniciar cluster
-minikube start --cpus=4 --memory=8192
-minikube addons enable ingress metrics-server
+# 1. Criar cluster multi-node
+./scripts/setup_multinode_cluster.sh
 
-# 2. Build e Deploy
-./scripts/build_images.sh
-./scripts/deploy.sh
-kubectl wait --for=condition=ready pod --all -n pspd --timeout=180s
+# 2. Deploy aplicações
+./scripts/deploy.sh setup
 
-# 3. Verificar
-kubectl get pods -n pspd        # 3 pods Running
-kubectl get hpa -n pspd         # 3 HPAs criados
+# 3. Configurar monitoramento
+./scripts/deploy.sh monitoring
+
+# 4. Executar testes
+./scripts/run_all_tests.sh all
 ```
 
 ---

@@ -6,11 +6,11 @@ items:
     annotations:
       kubectl.kubernetes.io/last-applied-configuration: |
         {"apiVersion":"autoscaling/v2","kind":"HorizontalPodAutoscaler","metadata":{"annotations":{},"name":"a-hpa","namespace":"pspd"},"spec":{"maxReplicas":5,"metrics":[{"resource":{"name":"cpu","target":{"averageUtilization":70,"type":"Utilization"}},"type":"Resource"}],"minReplicas":1,"scaleTargetRef":{"apiVersion":"apps/v1","kind":"Deployment","name":"a-deploy"}}}
-    creationTimestamp: "2025-11-23T20:38:47Z"
+    creationTimestamp: "2025-11-24T01:17:30Z"
     name: a-hpa
     namespace: pspd
-    resourceVersion: "11381"
-    uid: d0ffd809-86c7-4e56-b859-4ffd1774781a
+    resourceVersion: "2512"
+    uid: e671f760-3db5-4c52-a3c6-1e95fa9428c4
   spec:
     maxReplicas: 5
     metrics:
@@ -27,18 +27,18 @@ items:
       name: a-deploy
   status:
     conditions:
-    - lastTransitionTime: "2025-11-23T20:39:02Z"
+    - lastTransitionTime: "2025-11-24T01:17:45Z"
       message: recommended size matches current size
       reason: ReadyForNewScale
       status: "True"
       type: AbleToScale
-    - lastTransitionTime: "2025-11-23T20:39:44Z"
+    - lastTransitionTime: "2025-11-24T01:19:00Z"
       message: the HPA was able to successfully calculate a replica count from cpu
         resource utilization (percentage of request)
       reason: ValidMetricFound
       status: "True"
       type: ScalingActive
-    - lastTransitionTime: "2025-11-23T20:39:44Z"
+    - lastTransitionTime: "2025-11-24T01:19:00Z"
       message: the desired count is within the acceptable range
       reason: DesiredWithinRange
       status: "False"
@@ -46,24 +46,23 @@ items:
     currentMetrics:
     - resource:
         current:
-          averageUtilization: 54
-          averageValue: 54m
+          averageUtilization: 1
+          averageValue: 1m
         name: cpu
       type: Resource
     currentReplicas: 1
     desiredReplicas: 1
-    lastScaleTime: "2025-11-23T23:50:41Z"
 - apiVersion: autoscaling/v2
   kind: HorizontalPodAutoscaler
   metadata:
     annotations:
       kubectl.kubernetes.io/last-applied-configuration: |
         {"apiVersion":"autoscaling/v2","kind":"HorizontalPodAutoscaler","metadata":{"annotations":{},"name":"b-hpa","namespace":"pspd"},"spec":{"maxReplicas":5,"metrics":[{"resource":{"name":"cpu","target":{"averageUtilization":70,"type":"Utilization"}},"type":"Resource"}],"minReplicas":1,"scaleTargetRef":{"apiVersion":"apps/v1","kind":"Deployment","name":"b-deploy"}}}
-    creationTimestamp: "2025-11-23T20:38:47Z"
+    creationTimestamp: "2025-11-24T01:17:30Z"
     name: b-hpa
     namespace: pspd
-    resourceVersion: "11380"
-    uid: ba4e8e06-7ed2-4ed1-b459-15860ff8439c
+    resourceVersion: "2777"
+    uid: a565d245-8e96-47fa-b66d-eb15b740f33c
   spec:
     maxReplicas: 5
     metrics:
@@ -80,18 +79,18 @@ items:
       name: b-deploy
   status:
     conditions:
-    - lastTransitionTime: "2025-11-23T21:43:07Z"
-      message: recommended size matches current size
-      reason: ReadyForNewScale
+    - lastTransitionTime: "2025-11-24T01:17:45Z"
+      message: the HPA controller was able to update the target scale to 2
+      reason: SucceededRescale
       status: "True"
       type: AbleToScale
-    - lastTransitionTime: "2025-11-23T20:39:44Z"
+    - lastTransitionTime: "2025-11-24T01:19:00Z"
       message: the HPA was able to successfully calculate a replica count from cpu
         resource utilization (percentage of request)
       reason: ValidMetricFound
       status: "True"
       type: ScalingActive
-    - lastTransitionTime: "2025-11-23T23:47:40Z"
+    - lastTransitionTime: "2025-11-24T01:19:00Z"
       message: the desired count is within the acceptable range
       reason: DesiredWithinRange
       status: "False"
@@ -99,24 +98,24 @@ items:
     currentMetrics:
     - resource:
         current:
-          averageUtilization: 2
-          averageValue: 2m
+          averageUtilization: 1
+          averageValue: 1m
         name: cpu
       type: Resource
-    currentReplicas: 1
-    desiredReplicas: 1
-    lastScaleTime: "2025-11-23T23:50:41Z"
+    currentReplicas: 4
+    desiredReplicas: 2
+    lastScaleTime: "2025-11-24T01:27:46Z"
 - apiVersion: autoscaling/v2
   kind: HorizontalPodAutoscaler
   metadata:
     annotations:
       kubectl.kubernetes.io/last-applied-configuration: |
         {"apiVersion":"autoscaling/v2","kind":"HorizontalPodAutoscaler","metadata":{"annotations":{},"name":"p-hpa","namespace":"pspd"},"spec":{"behavior":{"scaleDown":{"policies":[{"periodSeconds":60,"type":"Percent","value":50}],"stabilizationWindowSeconds":60},"scaleUp":{"policies":[{"periodSeconds":15,"type":"Percent","value":100},{"periodSeconds":15,"type":"Pods","value":2}],"selectPolicy":"Max","stabilizationWindowSeconds":0}},"maxReplicas":10,"metrics":[{"resource":{"name":"cpu","target":{"averageUtilization":70,"type":"Utilization"}},"type":"Resource"},{"resource":{"name":"memory","target":{"averageUtilization":80,"type":"Utilization"}},"type":"Resource"}],"minReplicas":1,"scaleTargetRef":{"apiVersion":"apps/v1","kind":"Deployment","name":"p-deploy"}}}
-    creationTimestamp: "2025-11-23T20:38:47Z"
+    creationTimestamp: "2025-11-24T01:17:30Z"
     name: p-hpa
     namespace: pspd
-    resourceVersion: "11428"
-    uid: 331e8b67-9606-4e40-975d-a9a56c8886e3
+    resourceVersion: "2724"
+    uid: e2c17f4d-42f1-4822-a669-cdc0e3928b60
   spec:
     behavior:
       scaleDown:
@@ -157,18 +156,18 @@ items:
       name: p-deploy
   status:
     conditions:
-    - lastTransitionTime: "2025-11-23T20:39:02Z"
+    - lastTransitionTime: "2025-11-24T01:17:45Z"
       message: recommended size matches current size
       reason: ReadyForNewScale
       status: "True"
       type: AbleToScale
-    - lastTransitionTime: "2025-11-23T20:39:02Z"
+    - lastTransitionTime: "2025-11-24T01:18:00Z"
       message: the HPA was able to successfully calculate a replica count from cpu
         resource utilization (percentage of request)
       reason: ValidMetricFound
       status: "True"
       type: ScalingActive
-    - lastTransitionTime: "2025-11-23T23:45:41Z"
+    - lastTransitionTime: "2025-11-24T01:19:15Z"
       message: the desired count is within the acceptable range
       reason: DesiredWithinRange
       status: "False"
@@ -176,19 +175,19 @@ items:
     currentMetrics:
     - resource:
         current:
-          averageUtilization: 108
-          averageValue: 108m
+          averageUtilization: 6
+          averageValue: 6m
         name: cpu
       type: Resource
     - resource:
         current:
-          averageUtilization: 30
-          averageValue: 39612Ki
+          averageUtilization: 38
+          averageValue: 50856Ki
         name: memory
       type: Resource
-    currentReplicas: 2
-    desiredReplicas: 2
-    lastScaleTime: "2025-11-23T23:59:23Z"
+    currentReplicas: 1
+    desiredReplicas: 1
+    lastScaleTime: "2025-11-24T01:23:46Z"
 kind: List
 metadata:
   resourceVersion: ""
