@@ -1,19 +1,50 @@
 # Projeto Final PSPD - Monitoramento e Observabilidade em Kubernetes
 
-> Projeto de pesquisa focado em monitoramento e observabilidade de aplicações baseadas em microserviços em clusters Kubernetes, com ênfase em métricas de desempenho.
+> Projeto de pesquisa focado em monitoramento e observabilidade de aplicações baseadas em microserviços em clusters Kubernetes multi-node, com Prometheus, Grafana e ênfase em métricas de desempenho.
 
 ## 📋 Índice
 
 - [Arquitetura](#-arquitetura)
+- [Setup Multi-Node](#-setup-multi-node-novo)
 - [Quick Start](#-quick-start)
 - [Como Executar](#-como-executar)
 - [Testes de Carga](#-testes-de-carga)
+- [Monitoramento](#-monitoramento)
 - [Estrutura do Projeto](#-estrutura-do-projeto)
 - [Troubleshooting](#-troubleshooting)
 
 ---
 
 ## 🏗️ Arquitetura
+
+### Cluster Kubernetes Multi-Node
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Cluster K8s (1 Master + 2 Workers)                     │
+│                                                          │
+│  ┌────────────────────────────────────────────────────┐ │
+│  │  Namespace: pspd                                   │ │
+│  │  ┌───────────┐  ┌───────────┐  ┌───────────┐     │ │
+│  │  │ Gateway P │  │ Service A │  │ Service B │     │ │
+│  │  │  (Node.js)│  │  (Python) │  │  (Python) │     │ │
+│  │  │  :8080    │  │  :9101    │  │  :9102    │     │ │
+│  │  └─────┬─────┘  └─────┬─────┘  └─────┬─────┘     │ │
+│  │        │ gRPC         │                │          │ │
+│  │        └──────────────┴────────────────┘          │ │
+│  └────────────────────────────────────────────────────┘ │
+│                                                          │
+│  ┌────────────────────────────────────────────────────┐ │
+│  │  Namespace: monitoring                             │ │
+│  │  ┌──────────────┐  ┌──────────────┐               │ │
+│  │  │  Prometheus  │  │   Grafana    │               │ │
+│  │  │  :9090       │  │   :3000      │               │ │
+│  │  └──────┬───────┘  └──────────────┘               │ │
+│  │         │ scrape                                   │ │
+│  │         └─────► ServiceMonitors                    │ │
+│  └────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────┘
+```
 
 ### Microserviços gRPC
 ```
@@ -40,6 +71,29 @@ Todos os serviços expõem métricas em `/metrics`:
 **Services A/B (portas 9101/9102)**:
 - `grpc_server_requests_total`, `grpc_server_request_duration_seconds`
 - `grpc_server_stream_items_total` (apenas B)
+
+---
+
+## 🚀 Setup Multi-Node (NOVO)
+
+### Opção 1: Setup Completo Automatizado
+
+```bash
+# Criar cluster multi-node + Prometheus + Grafana (5-10 min)
+./scripts/setup_multinode_cluster.sh
+
+# Deploy das aplicações
+./scripts/deploy.sh setup
+
+# Configurar ServiceMonitors
+./scripts/deploy.sh monitoring
+```
+
+✅ **Resultado**: Cluster com 1 master + 2 workers + Prometheus + Grafana instalados
+
+### Opção 2: Setup Passo a Passo
+
+Ver documentação detalhada em: **[GUIA_MULTINODE.md](GUIA_MULTINODE.md)**
 
 ---
 
@@ -148,6 +202,62 @@ Spike: Taxa erro < 5%, p95 ~2s durante pico
 
 ---
 
+## 📊 Monitoramento
+
+### Acessar Grafana
+
+```bash
+# Opção 1: Port-forward
+./scripts/deploy.sh grafana
+# Acesse: http://localhost:3000
+# User: admin | Password: admin
+
+# Opção 2: NodePort (mais estável)
+MINIKUBE_IP=$(minikube ip -p pspd-cluster)
+GRAFANA_PORT=$(kubectl get svc -n monitoring prometheus-grafana -o jsonpath='{.spec.ports[0].nodePort}')
+echo "http://$MINIKUBE_IP:$GRAFANA_PORT"
+```
+
+### Importar Dashboard
+
+1. Acesse Grafana
+2. Vá em **+** → **Import** → **Upload JSON file**
+3. Selecione `k8s/monitoring/grafana-dashboard.json`
+4. Dashboard inclui:
+   - 📈 HTTP Request Rate
+   - ⏱️ Request Duration (p95, p99)
+   - 🔢 Pod Replicas (HPA)
+   - 💻 CPU/Memory Usage
+   - ❌ Error Rate
+
+### Acessar Prometheus
+
+```bash
+# Port-forward
+./scripts/deploy.sh prometheus
+# Acesse: http://localhost:9090
+
+# Queries úteis:
+# rate(http_requests_total{namespace="pspd"}[1m])
+# histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[1m]))
+```
+
+### Verificar ServiceMonitors
+
+```bash
+# Listar ServiceMonitors
+kubectl get servicemonitor -n pspd
+
+# Verificar targets no Prometheus
+# Acesse: http://localhost:9090/targets
+# Deve mostrar 3 targets UP:
+# - pspd/service-a-monitor
+# - pspd/service-b-monitor
+# - pspd/gateway-p-monitor
+```
+
+---
+
 ## 📁 Estrutura do Projeto
 
 ```
@@ -161,14 +271,13 @@ atividade-final-pspd/
 │   ├── p-nodeport.yaml      # NodePort para acesso estável
 │   └── monitoring/
 │       ├── hpa.yaml         # Autoscaling (CPU 70%, Memory 80%)
-│       └── servicemonitor-*.yaml  # Prometheus ServiceMonitors
+│       ├── servicemonitor-*.yaml      # Prometheus ServiceMonitors
+│       └── grafana-dashboard.json     # Dashboard customizado
 ├── load/                    # 4 cenários k6
 ├── scripts/
-│   ├── build_images.sh      # Build Docker
-│   ├── deploy.sh            # Deploy K8s
-│   ├── run_all_tests.sh     # Suite completa
-│   ├── stable_port_forward.sh  # Port-forward com auto-restart
-│   ├── monitor.sh           # Dashboard tempo real
+│   ├── setup_multinode_cluster.sh  # Criar cluster 1+2 nodes
+│   ├── deploy.sh            # Deploy K8s + monitoramento
+│   ├── run_all_tests.sh     # Suite completa + análise
 │   └── analyze_results.py   # Gerar gráficos
 ├── results/
 │   ├── baseline/            # Resultados baseline
@@ -176,12 +285,36 @@ atividade-final-pspd/
 │   ├── spike/               # Resultados spike
 │   ├── soak/                # Resultados soak
 │   └── plots/               # Gráficos + relatório
+├── GUIA_MULTINODE.md        # Guia detalhado multi-node
 └── README.md                # Este arquivo
 ```
 
 ---
 
 ## 🔧 Troubleshooting
+
+### Cluster multi-node não inicia
+
+**Solução**:
+```bash
+# Aumentar recursos
+minikube delete -p pspd-cluster
+minikube start -p pspd-cluster --nodes 3 --cpus 4 --memory 8192
+```
+
+### Prometheus não coleta métricas
+
+**Solução**:
+```bash
+# Verificar ServiceMonitors
+kubectl get servicemonitor -n pspd
+
+# Recriar
+./scripts/deploy.sh monitoring
+
+# Ver logs
+kubectl logs -n monitoring prometheus-kube-prometheus-prometheus-0
+```
 
 ### Port-forward cai durante testes
 
@@ -190,7 +323,7 @@ atividade-final-pspd/
 **Solução**:
 ```bash
 # Usar port-forward monitorado (reinicia automaticamente)
-./scripts/stable_port_forward.sh
+./scripts/deploy.sh port-forward
 ```
 
 ### HPA mostra `<unknown>` em TARGETS
@@ -244,6 +377,98 @@ sudo apt-get install k6
 
 ---
 
+## 🎯 Requisitos Acadêmicos Atendidos
+
+### ✅ Cluster Multi-Node Implementado
+
+**Requisito**: "Cluster composto por um nó mestre (plano de controle) e pelo menos dois nós escravos (worker nodes)"
+
+**Implementação**:
+```bash
+./scripts/setup_multinode_cluster.sh
+# Cria: 1 master (pspd-cluster) + 2 workers (pspd-cluster-m02, m03)
+```
+
+**Verificação**:
+```bash
+kubectl get nodes
+# NAME               STATUS   ROLES           AGE
+# pspd-cluster       Ready    control-plane   10m
+# pspd-cluster-m02   Ready    worker          9m
+# pspd-cluster-m03   Ready    worker          8m
+```
+
+### ✅ Prometheus Instalado no K8s
+
+**Requisito**: "Estudar e instalar, no K8S, o Prometheus"
+
+**Implementação**:
+- kube-prometheus-stack via Helm
+- Inclui: Prometheus Operator + Alertmanager
+- ServiceMonitors configurados para scraping automático
+
+**Verificação**:
+```bash
+kubectl get pods -n monitoring | grep prometheus
+# prometheus-kube-prometheus-prometheus-0   2/2   Running
+
+kubectl get servicemonitor -n pspd
+# gateway-p-monitor, service-a-monitor, service-b-monitor
+```
+
+**Acesso**:
+```bash
+./scripts/deploy.sh prometheus
+# http://localhost:9090
+```
+
+### ✅ Interface Web de Monitoramento
+
+**Requisito**: "Interface web de monitoramento do cluster"
+
+**Implementação**:
+- Grafana instalado com kube-prometheus-stack
+- Dashboard customizado em `k8s/monitoring/grafana-dashboard.json`
+- Métricas: Request Rate, Duration, Replicas, CPU, Memory, Error Rate
+
+**Verificação**:
+```bash
+kubectl get pods -n monitoring | grep grafana
+# prometheus-grafana-xxx   3/3   Running
+```
+
+**Acesso**:
+```bash
+./scripts/deploy.sh grafana
+# http://localhost:3000
+# User: admin | Password: admin
+```
+
+**Dashboard inclui**:
+- 📈 HTTP Request Rate por serviço
+- ⏱️ Request Duration (p95, p99)
+- 🔢 Pod Replicas (HPA)
+- 💻 CPU Usage por pod
+- 💾 Memory Usage por pod
+- ❌ Error Rate
+
+### ✅ Aplicação Instrumentada
+
+- ✅ Gateway P: Express + prom-client
+- ✅ Service A: Python + prometheus_client
+- ✅ Service B: Python + prometheus_client
+- ✅ Métricas HTTP e gRPC
+- ✅ Histogramas de latência
+
+### ✅ Testes de Carga e Análise
+
+- ✅ 4 cenários k6 (baseline, ramp, spike, soak)
+- ✅ Análise comparativa automatizada
+- ✅ 6 gráficos gerados
+- ✅ Captura de métricas K8s (HPA, CPU, Memory)
+
+---
+
 ## 📈 Análise de Resultados
 
 ### Queries PromQL Úteis
@@ -275,37 +500,28 @@ Após `python3 scripts/analyze_results.py`:
 
 ---
 
-## 🎯 Próximos Passos (Trabalho Acadêmico)
+## 🎯 Próximos Passos (Opcional)
 
-Para atender completamente a especificação do projeto:
+### Melhorias Futuras
 
-### ❌ Falta Implementar
+1. **Alertas Prometheus**
+   - Configurar AlertManager
+   - Regras de alerta para latência alta, erro rate, etc.
 
-1. **Cluster Multi-Node** (CRÍTICO)
-   - Especificação requer: 1 master + 2 workers
-   - Atual: Minikube single-node
-   - Ação: Migrar para kubeadm, kind multi-node, ou cluster cloud
+2. **Testes Adicionais**
+   - Variar réplicas mínimas/máximas do HPA
+   - Testar distribuição de carga nos 2 workers
+   - Cenários com falhas de nós
 
-2. **Prometheus Instalado no K8s** (CRÍTICO)
-   - ServiceMonitors criados mas Prometheus não instalado
-   - Ação: `helm install prometheus-community/kube-prometheus-stack`
+3. **Dashboards Adicionais**
+   - Dashboard de infraestrutura K8s
+   - Dashboard de rede (ingress/egress)
+   - Dashboard de custos (resource quotas)
 
-3. **Interface Web de Monitoramento** (CRÍTICO)
-   - Grafana com dashboards customizados
-   - Ou Kubernetes Dashboard
-
-4. **Cenários Comparativos Expandidos**
-   - Variar: réplicas, recursos, distribuição multi-node
-   - Documentar conclusões de cada cenário
-
-### ✅ Já Implementado
-
-- ✅ Aplicação gRPC (Gateway P + Service A + Service B)
-- ✅ Instrumentação Prometheus completa
-- ✅ Testes de carga (4 cenários)
-- ✅ HPA (autoscaling)
-- ✅ Scripts de automação
-- ✅ Análise comparativa com gráficos
+4. **CI/CD**
+   - Pipeline GitHub Actions
+   - Deploy automatizado
+   - Testes automatizados
 
 ---
 

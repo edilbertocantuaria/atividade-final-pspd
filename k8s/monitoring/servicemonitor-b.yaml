@@ -1,0 +1,17 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: service-b-monitor
+  namespace: pspd
+  labels:
+    app: b
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: b
+  endpoints:
+  - port: grpc
+    interval: 15s
+    path: /metrics
+    scheme: http
