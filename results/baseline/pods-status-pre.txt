@@ -1,4 +1,0 @@
-NAME                        READY   STATUS    RESTARTS   AGE   IP           NODE               NOMINATED NODE   READINESS GATES
-a-deploy-766ffc4fc9-zvstr   1/1     Running   0          29s   10.244.4.5   pspd-cluster-m03   <none>           <none>
-b-deploy-5b5c9d8466-h6nl2   1/1     Running   0          28s   10.244.4.6   pspd-cluster-m03   <none>           <none>
-p-deploy-6679b7fdc6-cff55   1/1     Running   0          28s   10.244.2.7   pspd-cluster-m02   <none>           <none>

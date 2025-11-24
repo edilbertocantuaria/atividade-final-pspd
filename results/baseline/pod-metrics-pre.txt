@@ -1,4 +1,0 @@
-NAME                        CPU(cores)   MEMORY(bytes)   
-a-deploy-766ffc4fc9-zvstr   27m          44Mi            
-b-deploy-5b5c9d8466-h6nl2   27m          42Mi            
-p-deploy-6679b7fdc6-cff55   36m          63Mi            

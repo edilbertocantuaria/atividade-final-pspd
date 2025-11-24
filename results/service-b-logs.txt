@@ -1,4 +1,0 @@
-Metrics server started on :9102
-Service B listening on :50052
-Metrics server started on :9102
-Service B listening on :50052
