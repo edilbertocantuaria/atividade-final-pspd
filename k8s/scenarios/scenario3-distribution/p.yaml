@@ -55,6 +55,7 @@ spec:
   selector: { app: p }
   ports: 
     - { port: 80, targetPort: 8080, name: http }
+    - { port: 8080, targetPort: 8080, name: metrics }
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler

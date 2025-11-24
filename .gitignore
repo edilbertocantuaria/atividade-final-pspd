@@ -23,6 +23,7 @@ MANIFEST
 venv/
 ENV/
 env/
+gerar_documento.py
 
 # Node.js
 node_modules/

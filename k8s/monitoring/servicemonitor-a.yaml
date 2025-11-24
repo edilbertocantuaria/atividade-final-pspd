@@ -11,7 +11,7 @@ spec:
     matchLabels:
       app: a
   endpoints:
-  - port: grpc
+  - port: metrics
     interval: 15s
     path: /metrics
     scheme: http

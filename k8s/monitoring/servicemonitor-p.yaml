@@ -2,18 +2,16 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: gateway-p-metrics
-  namespace: monitoring
+  namespace: pspd
   labels:
     app: p
+    release: prometheus
 spec:
   selector:
     matchLabels:
       app: p
-  namespaceSelector:
-    matchNames:
-      - pspd
   endpoints:
-    - port: http
+    - port: metrics
       path: /metrics
       interval: 15s
-      scrapeTimeout: 10s
+      scheme: http

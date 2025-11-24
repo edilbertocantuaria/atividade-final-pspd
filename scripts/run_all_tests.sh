@@ -82,13 +82,12 @@ run_test() {
     echo "⏳ Executando teste k6... (output completo em $result_dir/output.txt)"
     echo ""
     
-    # Roda k6 em background e mostra apenas progresso
+    # Roda k6 mostrando apenas progresso (suprime WARNs individuais)
     k6 run --out json="$result_dir/metrics.json" \
-        --quiet \
         --no-color \
         --summary-trend-stats="min,avg,med,max,p(90),p(95),p(99)" \
         -e BASE_URL="$BASE_URL" \
-        "$test_file" 2>&1 | tee "$result_dir/output.txt" | grep -E "(running|iterations|data_received|http_req)" || true
+        "$test_file" 2>&1 | tee "$result_dir/output.txt" | grep -v -E "^WARN\[" || true
     
     echo ""
     echo "📊 Resumo salvo em: $result_dir/output.txt"
