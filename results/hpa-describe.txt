@@ -5,7 +5,7 @@ Annotations:                                           <none>
 CreationTimestamp:                                     Sun, 23 Nov 2025 23:23:47 -0300
 Reference:                                             Deployment/a-deploy
 Metrics:                                               ( current / target )
-  resource cpu on pods  (as a percentage of request):  1% (1m) / 70%
+  resource cpu on pods  (as a percentage of request):  37% (37m) / 70%
 Min replicas:                                          1
 Max replicas:                                          5
 Deployment pods:                                       1 current / 1 desired
@@ -16,11 +16,10 @@ Conditions:
   ScalingActive   True    ValidMetricFound    the HPA was able to successfully calculate a replica count from cpu resource utilization (percentage of request)
   ScalingLimited  False   DesiredWithinRange  the desired count is within the acceptable range
 Events:
-  Type     Reason             Age                  From                       Message
-  ----     ------             ----                 ----                       -------
-  Warning  FailedGetScale     46m (x2 over 6h41m)  horizontal-pod-autoscaler  Unauthorized
-  Normal   SuccessfulRescale  19m (x6 over 10h)    horizontal-pod-autoscaler  New size: 2; reason: cpu resource utilization (percentage of request) above target
-  Normal   SuccessfulRescale  35s (x6 over 10h)    horizontal-pod-autoscaler  New size: 1; reason: All metrics below target
+  Type    Reason             Age                From                       Message
+  ----    ------             ----               ----                       -------
+  Normal  SuccessfulRescale  35m (x7 over 11h)  horizontal-pod-autoscaler  New size: 2; reason: cpu resource utilization (percentage of request) above target
+  Normal  SuccessfulRescale  16m (x7 over 11h)  horizontal-pod-autoscaler  New size: 1; reason: All metrics below target
 
 
 Name:                                                  b-hpa
@@ -41,13 +40,13 @@ Conditions:
   ScalingActive   True    ValidMetricFound    the HPA was able to successfully calculate a replica count from cpu resource utilization (percentage of request)
   ScalingLimited  False   DesiredWithinRange  the desired count is within the acceptable range
 Events:
-  Type     Reason             Age                  From                       Message
-  ----     ------             ----                 ----                       -------
-  Warning  FailedGetScale     46m (x2 over 6h41m)  horizontal-pod-autoscaler  Unauthorized
-  Normal   SuccessfulRescale  19m (x4 over 10h)    horizontal-pod-autoscaler  New size: 3; reason: cpu resource utilization (percentage of request) above target
-  Normal   SuccessfulRescale  16m (x6 over 10h)    horizontal-pod-autoscaler  New size: 5; reason: cpu resource utilization (percentage of request) above target
-  Normal   SuccessfulRescale  9m35s (x6 over 10h)  horizontal-pod-autoscaler  New size: 4; reason: All metrics below target
-  Normal   SuccessfulRescale  6m35s (x6 over 10h)  horizontal-pod-autoscaler  New size: 1; reason: All metrics below target
+  Type    Reason             Age                From                       Message
+  ----    ------             ----               ----                       -------
+  Normal  SuccessfulRescale  68m (x4 over 11h)  horizontal-pod-autoscaler  New size: 3; reason: cpu resource utilization (percentage of request) above target
+  Normal  SuccessfulRescale  58m (x6 over 11h)  horizontal-pod-autoscaler  New size: 4; reason: All metrics below target
+  Normal  SuccessfulRescale  35m (x2 over 9h)   horizontal-pod-autoscaler  New size: 4; reason: cpu resource utilization (percentage of request) above target
+  Normal  SuccessfulRescale  32m (x7 over 11h)  horizontal-pod-autoscaler  New size: 5; reason: cpu resource utilization (percentage of request) above target
+  Normal  SuccessfulRescale  16m (x7 over 11h)  horizontal-pod-autoscaler  New size: 1; reason: All metrics below target
 
 
 Name:                                                     p-hpa
@@ -57,8 +56,8 @@ Annotations:                                              <none>
 CreationTimestamp:                                        Sun, 23 Nov 2025 23:23:47 -0300
 Reference:                                                Deployment/p-deploy
 Metrics:                                                  ( current / target )
-  resource cpu on pods  (as a percentage of request):     43% (43m) / 70%
-  resource memory on pods  (as a percentage of request):  27% (35474Ki) / 80%
+  resource cpu on pods  (as a percentage of request):     75% (75m) / 70%
+  resource memory on pods  (as a percentage of request):  27% (36476Ki) / 80%
 Min replicas:                                             1
 Max replicas:                                             10
 Behavior:
@@ -81,13 +80,15 @@ Conditions:
   ScalingActive   True    ValidMetricFound    the HPA was able to successfully calculate a replica count from cpu resource utilization (percentage of request)
   ScalingLimited  False   DesiredWithinRange  the desired count is within the acceptable range
 Events:
-  Type    Reason             Age                  From                       Message
-  ----    ------             ----                 ----                       -------
-  Normal  SuccessfulRescale  20m (x8 over 10h)    horizontal-pod-autoscaler  New size: 3; reason: cpu resource utilization (percentage of request) above target
-  Normal  SuccessfulRescale  19m (x7 over 10h)    horizontal-pod-autoscaler  New size: 6; reason: cpu resource utilization (percentage of request) above target
-  Normal  SuccessfulRescale  17m (x5 over 10h)    horizontal-pod-autoscaler  New size: 4; reason: cpu resource utilization (percentage of request) above target
-  Normal  SuccessfulRescale  16m (x5 over 10h)    horizontal-pod-autoscaler  New size: 7; reason: cpu resource utilization (percentage of request) above target
-  Normal  SuccessfulRescale  13m (x3 over 10h)    horizontal-pod-autoscaler  New size: 5; reason: All metrics below target
-  Normal  SuccessfulRescale  12m (x11 over 10h)   horizontal-pod-autoscaler  New size: 3; reason: All metrics below target
-  Normal  SuccessfulRescale  10m (x10 over 10h)   horizontal-pod-autoscaler  New size: 1; reason: All metrics below target
-  Normal  SuccessfulRescale  2m34s (x8 over 10h)  horizontal-pod-autoscaler  New size: 2; reason: All metrics below target
+  Type    Reason             Age                 From                       Message
+  ----    ------             ----                ----                       -------
+  Normal  SuccessfulRescale  69m (x8 over 11h)   horizontal-pod-autoscaler  New size: 3; reason: cpu resource utilization (percentage of request) above target
+  Normal  SuccessfulRescale  65m (x5 over 11h)   horizontal-pod-autoscaler  New size: 7; reason: cpu resource utilization (percentage of request) above target
+  Normal  SuccessfulRescale  62m (x3 over 11h)   horizontal-pod-autoscaler  New size: 5; reason: All metrics below target
+  Normal  SuccessfulRescale  61m (x11 over 11h)  horizontal-pod-autoscaler  New size: 3; reason: All metrics below target
+  Normal  SuccessfulRescale  51m (x8 over 11h)   horizontal-pod-autoscaler  New size: 2; reason: All metrics below target
+  Normal  SuccessfulRescale  47m (x11 over 11h)  horizontal-pod-autoscaler  New size: 1; reason: All metrics below target
+  Normal  SuccessfulRescale  35m (x6 over 11h)   horizontal-pod-autoscaler  New size: 4; reason: cpu resource utilization (percentage of request) above target
+  Normal  SuccessfulRescale  35m (x8 over 11h)   horizontal-pod-autoscaler  New size: 6; reason: cpu resource utilization (percentage of request) above target
+  Normal  SuccessfulRescale  26m                 horizontal-pod-autoscaler  New size: 4; reason: All metrics below target
+  Normal  SuccessfulRescale  15m (x6 over 10h)   horizontal-pod-autoscaler  New size: 2; reason: cpu resource utilization (percentage of request) above target

@@ -9,7 +9,7 @@ items:
     creationTimestamp: "2025-11-24T02:23:47Z"
     name: a-hpa
     namespace: pspd
-    resourceVersion: "17144"
+    resourceVersion: "20141"
     uid: 26c81ca0-9cc0-450d-9b04-6ddd7d71c7e4
   spec:
     maxReplicas: 5
@@ -46,13 +46,13 @@ items:
     currentMetrics:
     - resource:
         current:
-          averageUtilization: 1
-          averageValue: 1m
+          averageUtilization: 37
+          averageValue: 37m
         name: cpu
       type: Resource
     currentReplicas: 1
     desiredReplicas: 1
-    lastScaleTime: "2025-11-24T13:02:02Z"
+    lastScaleTime: "2025-11-24T13:35:16Z"
 - apiVersion: autoscaling/v2
   kind: HorizontalPodAutoscaler
   metadata:
@@ -62,7 +62,7 @@ items:
     creationTimestamp: "2025-11-24T02:23:47Z"
     name: b-hpa
     namespace: pspd
-    resourceVersion: "16898"
+    resourceVersion: "19629"
     uid: cad70819-62ae-411d-aabd-8af16dcb39a6
   spec:
     maxReplicas: 5
@@ -91,7 +91,7 @@ items:
       reason: ValidMetricFound
       status: "True"
       type: ScalingActive
-    - lastTransitionTime: "2025-11-24T12:53:02Z"
+    - lastTransitionTime: "2025-11-24T13:28:29Z"
       message: the desired count is within the acceptable range
       reason: DesiredWithinRange
       status: "False"
@@ -105,7 +105,7 @@ items:
       type: Resource
     currentReplicas: 1
     desiredReplicas: 1
-    lastScaleTime: "2025-11-24T12:56:02Z"
+    lastScaleTime: "2025-11-24T13:35:16Z"
 - apiVersion: autoscaling/v2
   kind: HorizontalPodAutoscaler
   metadata:
@@ -115,7 +115,7 @@ items:
     creationTimestamp: "2025-11-24T02:23:47Z"
     name: p-hpa
     namespace: pspd
-    resourceVersion: "17146"
+    resourceVersion: "20144"
     uid: c1fb32c8-3c11-4151-91f2-80a679e89cb4
   spec:
     behavior:
@@ -168,7 +168,7 @@ items:
       reason: ValidMetricFound
       status: "True"
       type: ScalingActive
-    - lastTransitionTime: "2025-11-24T03:34:05Z"
+    - lastTransitionTime: "2025-11-24T13:26:30Z"
       message: the desired count is within the acceptable range
       reason: DesiredWithinRange
       status: "False"
@@ -176,19 +176,19 @@ items:
     currentMetrics:
     - resource:
         current:
-          averageUtilization: 43
-          averageValue: 43m
+          averageUtilization: 75
+          averageValue: 75m
         name: cpu
       type: Resource
     - resource:
         current:
           averageUtilization: 27
-          averageValue: 35474Ki
+          averageValue: 36476Ki
         name: memory
       type: Resource
     currentReplicas: 2
     desiredReplicas: 2
-    lastScaleTime: "2025-11-24T13:00:03Z"
+    lastScaleTime: "2025-11-24T13:50:16Z"
 kind: List
 metadata:
   resourceVersion: ""
