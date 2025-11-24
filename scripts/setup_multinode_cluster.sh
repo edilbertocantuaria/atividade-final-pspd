@@ -24,19 +24,45 @@ echo ""
 check_command() {
     if ! command -v $1 &> /dev/null; then
         echo -e "${RED}✗ $1 não encontrado${NC}"
-        echo "  Instale com: $2"
-        exit 1
+        return 1
     fi
     echo -e "${GREEN}✓ $1 disponível${NC}"
+    return 0
+}
+
+install_helm() {
+    echo -e "${YELLOW}Instalando Helm...${NC}"
+    curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✓ Helm instalado com sucesso${NC}"
+    else
+        echo -e "${RED}✗ Falha ao instalar Helm${NC}"
+        echo "  Instale manualmente: https://helm.sh/docs/intro/install/"
+        exit 1
+    fi
 }
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "📋 1. Verificando dependências..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-check_command docker "curl -fsSL https://get.docker.com | sh"
-check_command kubectl "https://kubernetes.io/docs/tasks/tools/"
-check_command minikube "https://minikube.sigs.k8s.io/docs/start/"
-check_command helm "https://helm.sh/docs/intro/install/"
+
+check_command docker || {
+    echo "  Instale com: curl -fsSL https://get.docker.com | sh"
+    exit 1
+}
+
+check_command kubectl || {
+    echo "  Instale com: https://kubernetes.io/docs/tasks/tools/"
+    exit 1
+}
+
+check_command minikube || {
+    echo "  Instale com: https://minikube.sigs.k8s.io/docs/start/"
+    exit 1
+}
+
+check_command helm || install_helm
+
 echo ""
 
 # Limpar cluster anterior se existir
