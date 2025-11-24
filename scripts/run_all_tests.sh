@@ -118,6 +118,13 @@ run_all_tests() {
     
     # Spike
     echo ""
+    echo "⚠️  ATENÇÃO: O teste de spike pode causar:"
+    echo "   • Port-forward reiniciar automaticamente"
+    echo "   • Taxa de erro de 10-40% (esperado)"
+    echo "   • Pods demorarem para responder"
+    echo "   Isso é NORMAL e parte do teste de resiliência!"
+    echo ""
+    sleep 3
     run_test "spike"
     echo "⏳ Aguardando estabilização (30s)..."
     sleep 30
