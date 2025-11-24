@@ -55,11 +55,16 @@ def parse_k6_output(file_path):
     checks_match = re.search(r'checks.*?([\d.]+)%', content)
     if checks_match:
         metrics['success_rate'] = float(checks_match.group(1))
+    else:
+        # Se não há checks, calcular taxa de sucesso a partir de http_req_failed
+        metrics['success_rate'] = 100.0 - metrics.get('failure_rate', 0.0)
     
     # Extrair http_req_failed
     failed_match = re.search(r'http_req_failed.*?([\d.]+)%', content)
     if failed_match:
         metrics['failure_rate'] = float(failed_match.group(1))
+    else:
+        metrics['failure_rate'] = 0.0
     
     # Extrair VUs
     vus_match = re.search(r'vus.*?max=(\d+)', content)
@@ -79,19 +84,37 @@ def parse_hpa_status(file_path):
         return {}
     
     with open(file_path) as f:
-        content = f.read()
+        content = f.read().replace('\n', ' ')  # Join all lines to handle wrapped text
+    
+    # Split by spaces
+    parts = content.split()
     
     hpa_data = {}
     
-    # Extrair réplicas por serviço
-    for service in ['p-hpa', 'a-hpa', 'b-hpa']:
-        match = re.search(f'{service}.*?(\\d+)/(\\d+)/(\\d+)', content)
-        if match:
-            hpa_data[service] = {
-                'replicas': int(match.group(1)),
-                'desired': int(match.group(2)),
-                'max': int(match.group(3))
-            }
+    # Find each HPA entry
+    for hpa_name in ['a-hpa', 'b-hpa', 'p-hpa']:
+        try:
+            idx = parts.index(hpa_name)
+            # After name: REFERENCE TARGETS... then 3 numbers: MINPODS MAXPODS REPLICAS
+            # Find next 3 consecutive numbers after the name
+            numbers = []
+            for i in range(idx + 1, min(idx + 20, len(parts))):  # Look ahead max 20 positions
+                try:
+                    num = int(parts[i])
+                    numbers.append(num)
+                    if len(numbers) == 3:
+                        break
+                except ValueError:
+                    continue
+            
+            if len(numbers) == 3:
+                hpa_data[hpa_name] = {
+                    'min': numbers[0],
+                    'max': numbers[1],
+                    'replicas': numbers[2]
+                }
+        except (ValueError, IndexError):
+            pass
     
     return hpa_data
 

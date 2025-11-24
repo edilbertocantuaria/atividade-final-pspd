@@ -94,7 +94,7 @@ Todos os serviços expõem métricas em `/metrics`:
 
 ### Opção 2: Setup Passo a Passo
 
-Ver documentação detalhada em: **[GUIA_MULTINODE.md](GUIA_MULTINODE.md)**
+Ver documentação detalhada em: **[GUIA_MULTINODE.md](docs/GUIA_MULTINODE.md)**
 
 ---
 
@@ -135,7 +135,7 @@ Se algo der erro, **não precisa recomeçar do zero**!
 # Escolha "1" e economize tempo! 🚀
 ```
 
-📖 **Guia completo**: [COMO_CONTINUAR.md](./COMO_CONTINUAR.md)
+📖 **Guia completo**: [COMO_CONTINUAR.md](docs/COMO_CONTINUAR.md)
 
 ### Pré-requisitos
 ```bash
@@ -215,7 +215,7 @@ python3 scripts/analyze_results.py
 |-------|---------|-------|----------|
 | **baseline.js** | 2 min | 10 VUs constantes | Linha de base de performance |
 | **ramp.js** | 4 min | 10→150 VUs gradual | Testar autoscaling (HPA) |
-| **spike.js** | 1.5 min | 10→80 VUs súbito | Resiliência a picos (SEM erros) |
+| **spike.js** | 1.5 min | 10→200 VUs súbito | Resiliência a picos (~33% erro esperado) |
 | **soak.js** | 11 min | 50 VUs sustentado | Estabilidade long-term |
 | **stress.js** | 1.5 min | 10→200 VUs | Encontrar limite (PODE ter erros) |
 
@@ -235,7 +235,7 @@ python3 scripts/analyze_results.py
 ```
 Baseline: ~150 req/s, p95 < 25ms, 100% sucesso
 Ramp: HPA escala 1→3 réplicas, p95 < 500ms, 100% sucesso
-Spike: Pico de 80 VUs, p95 < 1s, 100% sucesso
+Spike: Pico de 200 VUs, p95 < 2s, taxa erro < 10%, recuperação rápida
 Soak: Estável por 11 min, p95 < 10ms, 100% sucesso
 Stress (opcional): 200 VUs, identifica limite máximo (pode ter erros)
 ```

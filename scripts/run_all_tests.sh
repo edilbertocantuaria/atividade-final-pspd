@@ -21,9 +21,8 @@ show_usage() {
     echo "  all         - Executar todos os testes (padrão)"
     echo "  baseline    - Apenas teste baseline"
     echo "  ramp        - Apenas teste ramp"
-    echo "  spike       - Apenas teste spike (sem erros)"
+    echo "  spike       - Apenas teste spike (10→200 VUs)"
     echo "  soak        - Apenas teste soak"
-    echo "  stress      - Teste de stress (PODE gerar erros)"
     echo "  monitor     - Monitor em tempo real"
     echo "  analyze     - Gerar gráficos e análise"
     echo ""
@@ -34,7 +33,7 @@ show_usage() {
     echo "Exemplos:"
     echo "  $0              # Todos os testes"
     echo "  $0 baseline     # Apenas baseline"
-    echo "  $0 stress       # Teste extremo (encontra limite)"
+    echo "  $0 spike        # Teste de pico súbito (200 VUs)"
     echo "  $0 monitor      # Apenas monitor"
     echo "  BASE_URL=http://192.168.49.2:30080 $0 all"
 }
@@ -103,67 +102,45 @@ run_all_tests() {
     echo "Namespace: $K8S_NAMESPACE"
     echo ""
     
+    echo "📋 Passo 1/6: Verificando serviço..."
     check_service
     
     # Baseline
+    echo ""
+    echo "📊 Passo 2/6: Executando teste baseline..."
     run_test "baseline"
     echo "⏳ Aguardando estabilização (30s)..."
     sleep 30
     
     # Ramp
     echo ""
+    echo "📈 Passo 3/6: Executando teste ramp..."
     echo "💡 Dica: Execute 'watch -n 2 kubectl get hpa -n $K8S_NAMESPACE' em outro terminal"
     sleep 3
     run_test "ramp"
     echo "⏳ Aguardando scale-down (60s)..."
     sleep 60
     
-    # Spike (ajustado para não gerar erros)
+    # Spike
     echo ""
-    echo "💥 Teste de Spike: Pico súbito de 10→80 VUs"
-    echo "   (Ajustado para evitar erros - testa resiliência com carga moderada)"
+    echo "💥 Passo 4/6: Executando teste spike..."
+    echo "   Pico súbito de 10→200 VUs"
+    echo "   ⚠️  Pode causar erros temporários (~33%) - testa limite e recuperação"
     echo ""
     sleep 3
     run_test "spike"
     echo "⏳ Aguardando estabilização (30s)..."
     sleep 30
     
-    # Stress (opcional - pode gerar erros)
+    # Soak
     echo ""
-    read -t 15 -p "Executar teste de STRESS (10→200 VUs, PODE gerar erros)? [y/N] (auto-skip em 15s) " -n 1 -r
-    RESULT=$?
-    echo
-    if [ $RESULT -eq 0 ] && [[ $REPLY =~ ^[Yy]$ ]]; then
-        echo ""
-        echo "⚠️  TESTE DE STRESS - Encontra o limite máximo do sistema"
-        echo "   • Pode causar taxa de erro até 50%"
-        echo "   • Objetivo: identificar capacidade máxima"
-        echo ""
-        run_test "stress"
-        echo "⏳ Aguardando recuperação (60s)..."
-        sleep 60
-    else
-        if [ $RESULT -gt 128 ]; then
-            echo "⏱️  Timeout - pulando teste de stress"
-        else
-            echo "⏭️  Pulando teste de stress"
-        fi
-    fi
-    
-    # Soak (opcional)
+    echo "⏱️  Passo 5/6: Executando teste soak..."
+    echo "   50 VUs por 15 minutos - Validação de estabilidade prolongada"
     echo ""
-    read -t 15 -p "Executar teste soak (11+ minutos)? [y/N] (auto-skip em 15s) " -n 1 -r
-    RESULT=$?
-    echo
-    if [ $RESULT -eq 0 ] && [[ $REPLY =~ ^[Yy]$ ]]; then
-        run_test "soak"
-    else
-        if [ $RESULT -gt 128 ]; then
-            echo "⏱️  Timeout - pulando teste soak"
-        else
-            echo "⏭️  Pulando teste soak"
-        fi
-    fi
+    sleep 3
+    run_test "soak"
+    echo "⏳ Aguardando estabilização (30s)..."
+    sleep 30
     
     # Capturar estado final
     echo ""
@@ -183,7 +160,7 @@ run_all_tests() {
     
     echo ""
     echo "╔══════════════════════════════════════════════════════════════╗"
-    echo "║  ✅ Testes concluídos com sucesso!                          ║"
+    echo "║  ✅ Testes de carga concluídos com sucesso!                 ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo ""
     echo "Resultados em: $RESULTS_DIR"
@@ -193,8 +170,23 @@ run_all_tests() {
     grep "http_req_duration.*avg" "$RESULTS_DIR"/*/output.txt 2>/dev/null || true
     echo "─────────────────────────────────────────────────────────────"
     echo ""
+    
+    # Executar análise automaticamente
+    echo "📈 Passo 6/6: Gerando análises e gráficos..."
+    echo ""
+    run_analyze
+    
+    echo ""
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║  🎉 Pipeline completo finalizado!                           ║"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo ""
+    echo "📊 Análises disponíveis em: $RESULTS_DIR/plots/"
+    echo "📄 Relatório resumido: $RESULTS_DIR/plots/SUMMARY_REPORT.txt"
+    echo ""
     echo "💡 Próximos passos:"
-    echo "  - Gerar análise: $0 analyze"
+    echo "  - Ver gráficos: ls -lh $RESULTS_DIR/plots/"
+    echo "  - Ler relatório: cat $RESULTS_DIR/plots/SUMMARY_REPORT.txt"
     echo "  - Ver logs: cat $RESULTS_DIR/gateway-logs.txt"
 }
 
@@ -270,7 +262,7 @@ case "$COMMAND" in
     all)
         run_all_tests
         ;;
-    baseline|ramp|spike|soak|stress)
+    baseline|ramp|spike|soak)
         check_service
         run_test "$COMMAND"
         ;;

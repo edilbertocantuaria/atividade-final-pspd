@@ -38,7 +38,7 @@ echo ""
 CURRENT_STEP=$(load_checkpoint)
 
 if [ "$CURRENT_STEP" != "0" ]; then
-    echo -e "${YELLOW}📍 Checkpoint encontrado! Última etapa concluída: $CURRENT_STEP/5${NC}"
+    echo -e "${YELLOW}📍 Checkpoint encontrado! Última etapa concluída: $CURRENT_STEP/6${NC}"
     echo ""
     echo "Opções:"
     echo "  1. ✅ Continuar de onde parou (Etapa $((CURRENT_STEP + 1)))"
@@ -88,43 +88,43 @@ set -e
 if [ $START_STEP -le 1 ]; then
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "📋 Passo 1/5: Criando cluster multi-node..."
+    echo "📋 Passo 1/6: Criando cluster multi-node..."
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     ./scripts/setup_multinode_cluster.sh
     save_checkpoint "1"
 else
-    echo -e "${BLUE}⏭️  Pulando Passo 1/5 (já concluído)${NC}"
+    echo -e "${BLUE}⏭️  Pulando Passo 1/6 (já concluído)${NC}"
 fi
 
 # Passo 2: Deploy aplicações
 if [ $START_STEP -le 2 ]; then
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "📦 Passo 2/5: Deploy das aplicações..."
+    echo "📦 Passo 2/6: Deploy das aplicações..."
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     ./scripts/deploy.sh setup
     save_checkpoint "2"
 else
-    echo -e "${BLUE}⏭️  Pulando Passo 2/5 (já concluído)${NC}"
+    echo -e "${BLUE}⏭️  Pulando Passo 2/6 (já concluído)${NC}"
 fi
 
 # Passo 3: Configurar ServiceMonitors
 if [ $START_STEP -le 3 ]; then
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "📊 Passo 3/5: Configurando ServiceMonitors..."
+    echo "📊 Passo 3/6: Configurando ServiceMonitors..."
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     ./scripts/deploy.sh monitoring
     save_checkpoint "3"
 else
-    echo -e "${BLUE}⏭️  Pulando Passo 3/5 (já concluído)${NC}"
+    echo -e "${BLUE}⏭️  Pulando Passo 3/6 (já concluído)${NC}"
 fi
 
 # Passo 4: Iniciar port-forwards
 if [ $START_STEP -le 4 ]; then
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "🔗 Passo 4/5: Iniciando port-forwards..."
+    echo "🔗 Passo 4/6: Iniciando port-forwards..."
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
     # Limpar port-forwards antigos
@@ -153,7 +153,7 @@ if [ $START_STEP -le 4 ]; then
     
     save_checkpoint "4"
 else
-    echo -e "${BLUE}⏭️  Pulando Passo 4/5 (já concluído)${NC}"
+    echo -e "${BLUE}⏭️  Pulando Passo 4/6 (já concluído)${NC}"
     echo ""
     echo "💡 Interfaces disponíveis:"
     echo "  Gateway P:   http://localhost:8080"
@@ -165,7 +165,7 @@ fi
 if [ $START_STEP -le 5 ]; then
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "🧪 Passo 5/5: Executando testes de carga..."
+    echo "🧪 Passo 5/6: Executando testes de carga..."
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
     echo "⏳ Aguardando 10s para estabilização..."
@@ -175,13 +175,13 @@ if [ $START_STEP -le 5 ]; then
     
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "📈 Passo 6/5: Gerando análises..."
+    echo "📈 Passo 6/6: Gerando análises..."
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     python3 scripts/analyze_results.py
     
     save_checkpoint "5"
 else
-    echo -e "${BLUE}⏭️  Pulando Passo 5/5 (já concluído)${NC}"
+    echo -e "${BLUE}⏭️  Pulando Passo 5/6 (já concluído)${NC}"
 fi
 
 echo ""
