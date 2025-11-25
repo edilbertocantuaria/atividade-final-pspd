@@ -1,12 +1,4 @@
-NAME                        READY   STATUS              RESTARTS   AGE    IP             NODE               NOMINATED NODE   READINESS GATES
-a-deploy-766ffc4fc9-4npfg   0/1     ContainerCreating   0          1s     <none>         pspd-cluster-m02   <none>           <none>
-a-deploy-766ffc4fc9-mn8js   1/1     Running             0          2m2s   10.244.2.165   pspd-cluster-m03   <none>           <none>
-b-deploy-5b5c9d8466-5ngz2   0/1     ContainerCreating   0          1s     <none>         pspd-cluster-m02   <none>           <none>
-b-deploy-5b5c9d8466-6ng6b   0/1     ContainerCreating   0          1s     <none>         pspd-cluster-m02   <none>           <none>
-b-deploy-5b5c9d8466-t2hc6   0/1     ContainerCreating   0          1s     <none>         pspd-cluster-m03   <none>           <none>
-b-deploy-5b5c9d8466-x4l8j   1/1     Running             0          2m1s   10.244.2.166   pspd-cluster-m03   <none>           <none>
-p-deploy-6679b7fdc6-8wznf   1/1     Running             0          2m1s   10.244.2.167   pspd-cluster-m03   <none>           <none>
-p-deploy-6679b7fdc6-brm72   0/1     ContainerCreating   0          1s     <none>         pspd-cluster-m03   <none>           <none>
-p-deploy-6679b7fdc6-nx648   0/1     ContainerCreating   0          1s     <none>         pspd-cluster-m02   <none>           <none>
-p-deploy-6679b7fdc6-pft9g   0/1     ContainerCreating   0          1s     <none>         pspd-cluster-m03   <none>           <none>
-p-deploy-6679b7fdc6-r9sht   0/1     ContainerCreating   0          1s     <none>         pspd-cluster-m02   <none>           <none>
+NAME                        READY   STATUS    RESTARTS   AGE    IP             NODE               NOMINATED NODE   READINESS GATES
+a-deploy-766ffc4fc9-rt28x   1/1     Running   0          119s   10.244.2.178   pspd-cluster-m03   <none>           <none>
+b-deploy-5b5c9d8466-rhwz7   1/1     Running   0          119s   10.244.2.179   pspd-cluster-m03   <none>           <none>
+p-deploy-6679b7fdc6-jgdhr   1/1     Running   0          119s   10.244.2.180   pspd-cluster-m03   <none>           <none>

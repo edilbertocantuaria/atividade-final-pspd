@@ -14,7 +14,7 @@ sleep 5
 
 # Deploy
 kubectl apply -f "$PROJECT_ROOT/k8s/namespace.yaml"
-kubectl apply -f "$PROJECT_ROOT/k8s/scenarios/scenario2-warmstart/"
+kubectl apply -f "$PROJECT_ROOT/k8s/scenarios/scenario2-replicas/"
 sleep 10
 
 # Aguardar
