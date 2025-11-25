@@ -1,0 +1,4 @@
+NAME    REFERENCE             TARGETS                          MINPODS   MAXPODS   REPLICAS   AGE
+a-hpa   Deployment/a-deploy   cpu: 108%/70%, memory: 26%/80%   1         10        1          2m1s
+b-hpa   Deployment/b-deploy   cpu: 220%/70%, memory: 22%/80%   1         10        1          2m1s
+p-hpa   Deployment/p-deploy   cpu: 481%/70%, memory: 37%/80%   1         10        1          2m

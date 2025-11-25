@@ -1,0 +1,18 @@
+NAME                        READY   STATUS    RESTARTS   AGE     IP             NODE               NOMINATED NODE   READINESS GATES
+a-deploy-766ffc4fc9-5rg5l   1/1     Running   0          63s     10.244.1.114   pspd-cluster-m02   <none>           <none>
+a-deploy-766ffc4fc9-mn8js   1/1     Running   0          6m4s    10.244.2.165   pspd-cluster-m03   <none>           <none>
+b-deploy-5b5c9d8466-5ngz2   1/1     Running   0          4m3s    10.244.1.109   pspd-cluster-m02   <none>           <none>
+b-deploy-5b5c9d8466-6ng6b   1/1     Running   0          4m3s    10.244.1.112   pspd-cluster-m02   <none>           <none>
+b-deploy-5b5c9d8466-mdmjf   1/1     Running   0          63s     10.244.2.174   pspd-cluster-m03   <none>           <none>
+b-deploy-5b5c9d8466-p8l4w   1/1     Running   0          63s     10.244.2.172   pspd-cluster-m03   <none>           <none>
+b-deploy-5b5c9d8466-qltks   1/1     Running   0          63s     10.244.1.115   pspd-cluster-m02   <none>           <none>
+b-deploy-5b5c9d8466-t2hc6   1/1     Running   0          4m3s    10.244.2.168   pspd-cluster-m03   <none>           <none>
+b-deploy-5b5c9d8466-x4l8j   1/1     Running   0          6m3s    10.244.2.166   pspd-cluster-m03   <none>           <none>
+p-deploy-6679b7fdc6-8wznf   1/1     Running   0          6m3s    10.244.2.167   pspd-cluster-m03   <none>           <none>
+p-deploy-6679b7fdc6-95fxz   1/1     Running   0          63s     10.244.2.173   pspd-cluster-m03   <none>           <none>
+p-deploy-6679b7fdc6-brm72   1/1     Running   0          4m3s    10.244.2.169   pspd-cluster-m03   <none>           <none>
+p-deploy-6679b7fdc6-gn8sh   1/1     Running   0          3m48s   10.244.1.113   pspd-cluster-m02   <none>           <none>
+p-deploy-6679b7fdc6-nx648   1/1     Running   0          4m3s    10.244.1.111   pspd-cluster-m02   <none>           <none>
+p-deploy-6679b7fdc6-pft9g   1/1     Running   0          4m3s    10.244.2.170   pspd-cluster-m03   <none>           <none>
+p-deploy-6679b7fdc6-r9sht   1/1     Running   0          4m3s    10.244.1.110   pspd-cluster-m02   <none>           <none>
+p-deploy-6679b7fdc6-tnk5m   1/1     Running   0          63s     10.244.1.116   pspd-cluster-m02   <none>           <none>

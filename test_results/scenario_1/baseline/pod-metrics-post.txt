@@ -1,0 +1,4 @@
+NAME                        CPU(cores)   MEMORY(bytes)   
+a-deploy-766ffc4fc9-mn8js   108m         33Mi            
+b-deploy-5b5c9d8466-x4l8j   220m         28Mi            
+p-deploy-6679b7fdc6-8wznf   481m         47Mi            
