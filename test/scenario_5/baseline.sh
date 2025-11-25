@@ -15,10 +15,16 @@ kubectl top pods -n pspd > "$RESULTS_DIR/baseline/pod-metrics-pre.txt" 2>&1 || t
 kubectl get hpa -n pspd > "$RESULTS_DIR/baseline/hpa-status-pre.txt" 2>&1 || true
 kubectl get pods -n pspd -o wide > "$RESULTS_DIR/baseline/pods-status-pre.txt" 2>&1 || true
 
+# Executar teste
 k6 run --log-output=none \
   --summary-trend-stats="min,avg,med,max,p(90),p(95),p(99)" \
   --out json="$RESULTS_DIR/baseline/metrics.json" \
-  "$PROJECT_ROOT/load/baseline.js"
+  "$PROJECT_ROOT/load/baseline.js" | tee "$RESULTS_DIR/baseline/output.txt"
+
+# Métricas POST
+kubectl top pods -n pspd > "$RESULTS_DIR/baseline/pod-metrics-post.txt" 2>&1 || true
+kubectl get hpa -n pspd > "$RESULTS_DIR/baseline/hpa-status-post.txt" 2>&1 || true
+kubectl get pods -n pspd -o wide > "$RESULTS_DIR/baseline/pods-status-post.txt" 2>&1 || true
 
 echo ""
 echo "✅ Resultados salvos em: $RESULTS_DIR/baseline/"
