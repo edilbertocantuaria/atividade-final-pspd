@@ -4,29 +4,14 @@ metadata:
   name: p-deploy
   namespace: pspd
 spec:
-  replicas: 3  # 3 réplicas para distribuir em 3 nodes
+  replicas: 1
   selector: { matchLabels: { app: p } }
   template:
     metadata: 
       labels: 
         app: p
         version: v1
-        scenario: distribution
     spec:
-      # ALTERADO: Anti-affinity SOFT (preferencial, não obrigatória)
-      # Tenta distribuir em nodes diferentes, mas permite no mesmo node se necessário
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchExpressions:
-                    - key: app
-                      operator: In
-                      values:
-                        - p
-                topologyKey: kubernetes.io/hostname
       containers:
         - name: p
           image: p-gateway:local
@@ -59,23 +44,3 @@ spec:
   ports: 
     - { port: 80, targetPort: 8080, name: http }
     - { port: 8080, targetPort: 8080, name: metrics }
----
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: p-hpa
-  namespace: pspd
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: p-deploy
-  minReplicas: 3
-  maxReplicas: 12
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 70

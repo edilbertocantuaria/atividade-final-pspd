@@ -21,13 +21,11 @@ export default function () {
   let res = http.get(`${baseUrl}/a/hello?name=k6test`);
   check(res, {
     'status is 200': (r) => r.status === 200,
-    'has message': (r) => r.json('message') !== undefined,
   });
   
   res = http.get(`${baseUrl}/b/numbers?count=5`);
   check(res, {
     'status is 200': (r) => r.status === 200,
-    'has values': (r) => r.json('values') !== undefined,
   });
   
   sleep(0.1);

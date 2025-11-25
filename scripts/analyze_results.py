@@ -7,14 +7,22 @@ Baseado nos resultados do k6 e métricas do Kubernetes
 import os
 import re
 import json
+import sys
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from pathlib import Path
 
-# Diretórios
-RESULTS_DIR = Path("results")
-PLOTS_DIR = RESULTS_DIR / "plots"
-PLOTS_DIR.mkdir(exist_ok=True)
+# Diretórios - suporta tanto results/ (antigo) quanto test_results/ (novo)
+if len(sys.argv) > 1:
+    # Modo: python analyze_results.py test_results/scenario_1
+    RESULTS_DIR = Path(sys.argv[1])
+    PLOTS_DIR = RESULTS_DIR / "plots"
+else:
+    # Modo legado: python analyze_results.py (usa results/)
+    RESULTS_DIR = Path("results")
+    PLOTS_DIR = RESULTS_DIR / "plots"
+
+PLOTS_DIR.mkdir(exist_ok=True, parents=True)
 
 # Configuração de estilo
 plt.style.use('seaborn-v0_8-darkgrid')
@@ -30,20 +38,27 @@ def parse_k6_output(file_path):
     if not file_path.exists():
         return None
     
+    # Ler apenas as últimas 100 linhas (onde ficam as estatísticas)
     with open(file_path) as f:
-        content = f.read()
+        lines = f.readlines()
+        # Pegar últimas 100 linhas ou todas se houver menos
+        content = ''.join(lines[-100:])
     
     metrics = {}
     
-    # Extrair http_req_duration
-    duration_match = re.search(r'http_req_duration.*?avg=([\d.]+)(\w+).*?min=([\d.]+)(\w+).*?med=([\d.]+)(\w+).*?max=([\d.]+)(\w+).*?p\(90\)=([\d.]+)(\w+).*?p\(95\)=([\d.]+)(\w+)', content, re.S)
+    # Extrair http_req_duration (formato: min=X avg=Y med=Z max=W p(90)=T p(95)=V p(99)=U)
+    duration_match = re.search(r'http_req_duration[^\n]*min=([\d.]+)(\w+)\s+avg=([\d.]+)(\w+)\s+med=([\d.]+)(\w+)\s+max=([\d.]+)(\w+)\s+p\(90\)=([\d.]+)(\w+)\s+p\(95\)=([\d.]+)(\w+)', content)
     if duration_match:
-        metrics['avg_duration'] = float(duration_match.group(1))
-        metrics['min_duration'] = float(duration_match.group(3))
+        metrics['min_duration'] = float(duration_match.group(1))
+        metrics['avg_duration'] = float(duration_match.group(3))
         metrics['med_duration'] = float(duration_match.group(5))
         metrics['max_duration'] = float(duration_match.group(7))
         metrics['p90_duration'] = float(duration_match.group(9))
         metrics['p95_duration'] = float(duration_match.group(11))
+        # Tentar pegar p99 também
+        p99_match = re.search(r'p\(99\)=([\d.]+)(\w+)', content)
+        if p99_match:
+            metrics['p99_duration'] = float(p99_match.group(1))
     
     # Extrair http_reqs
     reqs_match = re.search(r'http_reqs.*?(\d+)\s+([\d.]+)/s', content)
@@ -170,6 +185,7 @@ def collect_all_metrics():
     all_metrics = {}
     
     for scenario in scenarios:
+        # Suporta tanto results/baseline/ quanto test_results/scenario_X/baseline/
         scenario_dir = RESULTS_DIR / scenario
         if not scenario_dir.exists():
             continue
@@ -278,14 +294,29 @@ def plot_success_rate(metrics):
     for scenario, data in sorted(metrics.items()):
         if 'k6' in data:
             scenarios.append(scenario.upper())
-            success_rates.append(data['k6'].get('success_rate', 0))
-            failure_rates.append(data['k6'].get('failure_rate', 0))
+            # Usar apenas http_req_failed para calcular sucesso/falha
+            failure_rate = data['k6'].get('failure_rate', 0)
+            success_rate = 100.0 - failure_rate
+            success_rates.append(success_rate)
+            failure_rates.append(failure_rate)
     
     x = range(len(scenarios))
     width = 0.35
     
-    ax.bar([i - width/2 for i in x], success_rates, width, label='Sucesso (%)', color='#2ecc71')
-    ax.bar([i + width/2 for i in x], failure_rates, width, label='Falha (%)', color='#e74c3c')
+    # Criar barras empilhadas para mostrar sucesso + falha = 100%
+    ax.bar(x, success_rates, width, label='Sucesso (%)', color='#2ecc71')
+    ax.bar(x, failure_rates, width, bottom=success_rates, label='Falha (%)', color='#e74c3c')
+    
+    # Adicionar valores nas barras
+    for i in x:
+        # Valor de sucesso
+        if success_rates[i] > 5:  # Só mostrar se tiver espaço
+            ax.text(i, success_rates[i]/2, f'{success_rates[i]:.1f}%', ha='center', va='center', 
+                   fontsize=10, fontweight='bold', color='white')
+        # Valor de falha
+        if failure_rates[i] > 5:  # Só mostrar se tiver espaço
+            ax.text(i, success_rates[i] + failure_rates[i]/2, f'{failure_rates[i]:.1f}%', 
+                   ha='center', va='center', fontsize=10, fontweight='bold', color='white')
     
     ax.set_xlabel('Cenário', fontsize=12, fontweight='bold')
     ax.set_ylabel('Percentual (%)', fontsize=12, fontweight='bold')
@@ -329,8 +360,15 @@ def plot_hpa_scaling(metrics):
             x = range(len(scenarios))
             width = 0.35
             
-            ax.bar([i - width/2 for i in x], replicas_pre, width, label='Pré-teste', color='#3498db', alpha=0.7)
-            ax.bar([i + width/2 for i in x], replicas_post, width, label='Pós-teste', color='#e74c3c', alpha=0.7)
+            ax.bar([i - width/2 for i in x], replicas_pre, width, label='Pré-teste', color='#3498db', alpha=0.7, edgecolor='black', linewidth=1)
+            ax.bar([i + width/2 for i in x], replicas_post, width, label='Pós-teste', color='#e74c3c', alpha=0.7, edgecolor='black', linewidth=1)
+            
+            # Adicionar valores nas barras
+            for i in x:
+                if replicas_pre[i] > 0:
+                    ax.text(i - width/2, replicas_pre[i] + 0.1, str(int(replicas_pre[i])), ha='center', va='bottom', fontsize=9, fontweight='bold')
+                if replicas_post[i] > 0:
+                    ax.text(i + width/2, replicas_post[i] + 0.1, str(int(replicas_post[i])), ha='center', va='bottom', fontsize=9, fontweight='bold')
             
             ax.set_ylabel('Réplicas', fontsize=11, fontweight='bold')
             ax.set_title(f'{name} - Scaling Behavior', fontsize=12, fontweight='bold')
@@ -338,6 +376,7 @@ def plot_hpa_scaling(metrics):
             ax.set_xticklabels(scenarios)
             ax.legend()
             ax.grid(True, alpha=0.3, axis='y')
+            ax.set_ylim(0, max(max(replicas_pre + replicas_post, default=1) * 1.2, 1))
             ax.set_ylim(0, max(replicas_post + [1]) + 1)
     
     plt.suptitle('Horizontal Pod Autoscaler - Evolução de Réplicas', fontsize=14, fontweight='bold')
@@ -409,23 +448,29 @@ def plot_latency_percentiles(metrics):
     """Gráfico 6: Distribuição de percentis de latência"""
     fig, ax = plt.subplots(figsize=(12, 7))
     
+    # Inicializar labels fora do loop
+    percentiles = ['min_duration', 'avg_duration', 'med_duration', 'p90_duration', 'p95_duration', 'max_duration']
+    labels = ['Min', 'Avg', 'Median', 'p90', 'p95', 'Max']
+    
+    has_data = False
     for scenario, data in sorted(metrics.items()):
         if 'k6' in data and 'avg_duration' in data['k6']:
-            percentiles = ['min_duration', 'avg_duration', 'med_duration', 'p90_duration', 'p95_duration', 'max_duration']
-            labels = ['Min', 'Avg', 'Median', 'p90', 'p95', 'Max']
-            values = [data['k6'].get(p, 0) for p in percentiles]
+            # Substituir valores 0 por 0.01 para evitar problemas com escala log
+            values = [max(data['k6'].get(p, 0), 0.01) for p in percentiles]
             
             x = range(len(labels))
             ax.plot(x, values, marker='o', label=scenario.upper(), linewidth=2.5, markersize=8)
+            has_data = True
     
-    ax.set_xticks(range(len(labels)))
-    ax.set_xticklabels(labels)
-    ax.set_xlabel('Percentil', fontsize=12, fontweight='bold')
-    ax.set_ylabel('Latência (ms)', fontsize=12, fontweight='bold')
-    ax.set_title('Distribuição de Latência por Percentil', fontsize=14, fontweight='bold')
-    ax.legend(fontsize=10)
-    ax.grid(True, alpha=0.3)
-    ax.set_yscale('log')  # Escala logarítmica para melhor visualização
+    if has_data:
+        ax.set_xticks(range(len(labels)))
+        ax.set_xticklabels(labels)
+        ax.set_xlabel('Percentil', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Latência (ms)', fontsize=12, fontweight='bold')
+        ax.set_title('Distribuição de Latência por Percentil', fontsize=14, fontweight='bold')
+        ax.legend(fontsize=10)
+        ax.grid(True, alpha=0.3)
+        ax.set_yscale('log')  # Escala logarítmica para melhor visualização
     
     plt.tight_layout()
     plt.savefig(PLOTS_DIR / "06_latency_percentiles.png", dpi=300, bbox_inches='tight')
@@ -453,8 +498,11 @@ def generate_summary_report(metrics):
                 f.write(f"  • Total de requisições: {k6.get('total_requests', 0):,}\n")
                 f.write(f"  • Latência média: {k6.get('avg_duration', 0):.2f} ms\n")
                 f.write(f"  • Latência p95: {k6.get('p95_duration', 0):.2f} ms\n")
-                f.write(f"  • Taxa de sucesso: {k6.get('success_rate', 0):.2f}%\n")
-                f.write(f"  • Taxa de falha: {k6.get('failure_rate', 0):.2f}%\n")
+                # Calcular success_rate baseado em failure_rate
+                failure_rate = k6.get('failure_rate', 0)
+                success_rate = 100.0 - failure_rate
+                f.write(f"  • Taxa de sucesso: {success_rate:.2f}%\n")
+                f.write(f"  • Taxa de falha: {failure_rate:.2f}%\n")
                 f.write(f"  • VUs máximos: {k6.get('max_vus', 0)}\n")
                 f.write(f"  • Iterações: {k6.get('iterations', 0):,}\n\n")
             

@@ -42,35 +42,16 @@ package-lock.json
 # Docker
 .docker/
 
-# Results folder - ignore runtime/logs but keep structure
-# Ignore large JSON files (k6 metrics can be 50-100MB)
-results/*.json
-results/*/metrics.json
+# Test Results - Nova arquitetura modular (test_results/)
+# Ignorar arquivos grandes de métricas (k6 pode gerar 50-100MB por teste)
+test_results/*/*/metrics.json
+test_results/*/*/output.txt
+test_results/*/*/*.txt
 
-# Ignore log files and history
-results/*.log
-results/*-logs.txt
-results/gateway-logs.txt
-results/service-a-logs.txt
-results/service-b-logs.txt
-results/events-history.txt
-results/prometheus-metrics.txt
-
-# Ignore runtime status snapshots in test subdirectories
-results/*/events.txt
-results/*/pod-metrics-*.txt
-results/*/pods-status-*.txt
-results/*/hpa-status-*.txt
-
-# Keep these important files:
-# - results/README.md (documentation)
-# - results/SPIKE_TEST_EXPLAINED.md (documentation)
-# - results/plots/*.png (analysis graphs)
-# - results/plots/SUMMARY_REPORT.txt (summary)
-# - results/*/output.txt (k6 summary - small text file)
-# - results/hpa-final.yaml (final HPA state)
-# - results/hpa-describe.txt (HPA details)
-# - results/pods-final.txt (final pods state)
+# Results antigos (deprecated - usar test_results/)
+results/
+results-scenario-*/
+scenario-comparison/
 
 # IDE
 .vscode/
