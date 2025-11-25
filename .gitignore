@@ -51,7 +51,7 @@ test_results/*/*/*.txt
 # Results antigos (deprecated - usar test_results/)
 results/
 results-scenario-*/
-scenario-comparison/
+
 
 # IDE
 .vscode/

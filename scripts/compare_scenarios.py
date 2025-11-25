@@ -21,19 +21,19 @@ plt.rcParams['axes.grid'] = True
 plt.rcParams['grid.alpha'] = 0.3
 
 SCENARIO_NAMES = {
-    '1-base': 'S1: Base (HPA)',
-    '2-replicas': 'S2: 2 Réplicas',
-    '3-distribution': 'S3: Distribuído',
-    '4-resources': 'S4: Recursos -50%',
-    '5-no-hpa': 'S5: Sem HPA'
+    '1': 'S1: Base (HPA)',
+    '2': 'S2: 2 Réplicas',
+    '3': 'S3: Distribuído',
+    '4': 'S4: Recursos -50%',
+    '5': 'S5: Sem HPA'
 }
 
 SCENARIO_COLORS = {
-    '1-base': '#3498db',      # Azul
-    '2-replicas': '#2ecc71',  # Verde
-    '3-distribution': '#e74c3c',  # Vermelho
-    '4-resources': '#f39c12', # Laranja
-    '5-no-hpa': '#9b59b6'     # Roxo
+    '1': '#3498db',      # Azul
+    '2': '#2ecc71',  # Verde
+    '3': '#e74c3c',  # Vermelho
+    '4': '#f39c12', # Laranja
+    '5': '#9b59b6'     # Roxo
 }
 
 
@@ -41,11 +41,14 @@ def find_result_dirs(base_dir: Path) -> Dict[str, Path]:
     """Encontra diretórios de resultados dos cenários."""
     result_dirs = {}
     
+    test_results_dir = base_dir / "test_results"
+    if not test_results_dir.exists():
+        return result_dirs
+    
     for scenario_key in SCENARIO_NAMES.keys():
-        pattern = f"results-scenario-{scenario_key}"
-        dirs = list(base_dir.glob(pattern))
-        if dirs:
-            result_dirs[scenario_key] = dirs[0]
+        scenario_dir = test_results_dir / f"scenario_{scenario_key}"
+        if scenario_dir.exists():
+            result_dirs[scenario_key] = scenario_dir
     
     return result_dirs
 
@@ -631,7 +634,7 @@ def main():
     scenarios_data = collect_scenario_data(result_dirs)
     
     # Criar diretório de saída
-    output_dir = base_dir / 'scenario-comparison'
+    output_dir = base_dir / 'test_results' / 'scenario-comparison'
     output_dir.mkdir(exist_ok=True)
     
     print(f"\n📈 Gerando gráficos comparativos...")

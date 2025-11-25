@@ -14,7 +14,7 @@ sleep 5
 
 # Deploy
 kubectl apply -f "$PROJECT_ROOT/k8s/namespace.yaml"
-kubectl apply -f "$PROJECT_ROOT/k8s/scenarios/scenario5-nohpa/"
+kubectl apply -f "$PROJECT_ROOT/k8s/scenarios/scenario5-no-hpa/"
 sleep 10
 
 # Aguardar
