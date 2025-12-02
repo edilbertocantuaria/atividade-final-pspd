@@ -30,12 +30,12 @@ export default function () {
   
   while (retries < maxRetries) {
     try {
-      res = http.get(`${baseUrl}/a/hello?name=soak${__ITER}`, {
+      // Simula uso prolongado (maratona)
+      res = http.get(`${baseUrl}/api/content?type=all&limit=20`, {
         timeout: '10s',
       });
       
       if (res.status === 0 && retries < maxRetries - 1) {
-        // Falha de conexão, tentar novamente
         console.warn(`Connection failed, retry ${retries + 1}/${maxRetries}`);
         sleep(0.5);
         retries++;
@@ -57,6 +57,12 @@ export default function () {
     'status 200': (r) => r.status === 200,
     'not connection error': (r) => r.status !== 0,
   });
+  
+  // Busca metadados de conteúdo aleatório
+  const contentIds = ['m1', 'm2', 's1', 's2', 'ch1'];
+  const id = contentIds[Math.floor(Math.random() * contentIds.length)];
+  const res2 = http.get(`${baseUrl}/api/metadata/${id}`);
+  check(res2, { 'metadata ok': (r) => r.status === 200 });
   
   sleep(1);
 }

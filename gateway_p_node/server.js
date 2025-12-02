@@ -69,37 +69,120 @@ app.use((req, res, next) => {
 
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "public/index.html")));
 
-app.get("/a/hello", (req, res) => {
-  const name = req.query.name || "mundo";
+// API de cat\u00e1logo: obt\u00e9m conte\u00fado do Service A
+app.get("/api/content", (req, res) => {
+  const type = req.query.type || "all";
+  const limit = parseInt(req.query.limit || "20", 10);
+  const genre = req.query.genre || "";
+  
   const start = process.hrtime.bigint();
-  clientA.SayHello({ name }, (err, reply) => {
+  clientA.GetContent({ type, limit, genre }, (err, response) => {
     const duration = Number(process.hrtime.bigint() - start) / 1e9;
     const status = err ? "error" : "success";
-    grpcRequestDuration.labels("ServiceA", "SayHello", status).observe(duration);
-    grpcRequestsTotal.labels("ServiceA", "SayHello", status).inc();
+    grpcRequestDuration.labels("ServiceA", "GetContent", status).observe(duration);
+    grpcRequestsTotal.labels("ServiceA", "GetContent", status).inc();
+    
     if (err) return res.status(500).json({ error: err.message });
-    res.json({ from: "A", message: reply.message });
+    res.json({
+      items: response.items,
+      total: response.total,
+      source: "ServiceA"
+    });
   });
 });
 
-app.get("/b/numbers", (req, res) => {
-  const count = parseInt(req.query.count || "5", 10);
-  const delay_ms = parseInt(req.query.delay_ms || "0", 10);
+// API de metadados: obt\u00e9m recomenda\u00e7\u00f5es do Service B via streaming
+app.get("/api/metadata/:contentId", (req, res) => {
+  const contentId = req.params.contentId;
+  const userId = req.query.userId || "guest";
+  
   const start = process.hrtime.bigint();
-  const call = clientB.StreamNumbers({ count, delay_ms });
-  const values = [];
-  call.on("data", (chunk) => values.push(chunk.value));
+  const call = clientB.StreamMetadata({ content_id: contentId, user_id: userId });
+  const metadata = [];
+  
+  call.on("data", (item) => {
+    metadata.push({
+      key: item.key,
+      value: item.value,
+      relevanceScore: item.relevance_score
+    });
+  });
+  
   call.on("error", (err) => {
     const duration = Number(process.hrtime.bigint() - start) / 1e9;
-    grpcRequestDuration.labels("ServiceB", "StreamNumbers", "error").observe(duration);
-    grpcRequestsTotal.labels("ServiceB", "StreamNumbers", "error").inc();
+    grpcRequestDuration.labels("ServiceB", "StreamMetadata", "error").observe(duration);
+    grpcRequestsTotal.labels("ServiceB", "StreamMetadata", "error").inc();
     res.status(500).json({ error: err.message });
   });
+  
   call.on("end", () => {
     const duration = Number(process.hrtime.bigint() - start) / 1e9;
-    grpcRequestDuration.labels("ServiceB", "StreamNumbers", "success").observe(duration);
-    grpcRequestsTotal.labels("ServiceB", "StreamNumbers", "success").inc();
-    res.json({ from: "B", values });
+    grpcRequestDuration.labels("ServiceB", "StreamMetadata", "success").observe(duration);
+    grpcRequestsTotal.labels("ServiceB", "StreamMetadata", "success").inc();
+    res.json({
+      contentId,
+      metadata,
+      source: "ServiceB"
+    });
+  });
+});
+
+// Endpoint combinado: cat\u00e1logo + metadados do primeiro item
+app.get("/api/browse", async (req, res) => {
+  const type = req.query.type || "all";
+  const limit = parseInt(req.query.limit || "10", 10);
+  
+  const start = process.hrtime.bigint();
+  
+  // Chama Service A para cat\u00e1logo
+  clientA.GetContent({ type, limit, genre: "" }, (err, catalogResponse) => {
+    if (err) {
+      grpcRequestsTotal.labels("ServiceA", "GetContent", "error").inc();
+      return res.status(500).json({ error: err.message });
+    }
+    
+    grpcRequestsTotal.labels("ServiceA", "GetContent", "success").inc();
+    
+    // Se houver itens, busca metadados do primeiro via Service B
+    if (catalogResponse.items.length > 0) {
+      const firstItem = catalogResponse.items[0];
+      const metaCall = clientB.StreamMetadata({ 
+        content_id: firstItem.id, 
+        user_id: "guest" 
+      });
+      const metadata = [];
+      
+      metaCall.on("data", (item) => metadata.push({
+        key: item.key,
+        value: item.value,
+        relevanceScore: item.relevance_score
+      }));
+      
+      metaCall.on("error", (err) => {
+        grpcRequestsTotal.labels("ServiceB", "StreamMetadata", "error").inc();
+      });
+      
+      metaCall.on("end", () => {
+        const duration = Number(process.hrtime.bigint() - start) / 1e9;
+        grpcRequestsTotal.labels("ServiceB", "StreamMetadata", "success").inc();
+        httpRequestDuration.labels("GET", "/api/browse", 200).observe(duration);
+        
+        res.json({
+          catalog: catalogResponse.items,
+          total: catalogResponse.total,
+          featuredMetadata: metadata,
+          processingTime: `${(duration * 1000).toFixed(2)}ms`
+        });
+      });
+    } else {
+      const duration = Number(process.hrtime.bigint() - start) / 1e9;
+      res.json({
+        catalog: [],
+        total: 0,
+        featuredMetadata: [],
+        processingTime: `${(duration * 1000).toFixed(2)}ms`
+      });
+    }
   });
 });
 

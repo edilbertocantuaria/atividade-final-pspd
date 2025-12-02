@@ -18,14 +18,32 @@ export const options = {
 export default function () {
   const baseUrl = __ENV.BASE_URL || 'http://localhost:8080';
   
-  let res = http.get(`${baseUrl}/a/hello?name=k6test`);
+  // Simula usuário navegando na plataforma
+  
+  // 1. Listar catálogo completo
+  let res = http.get(`${baseUrl}/api/content?type=all&limit=20`);
   check(res, {
-    'status is 200': (r) => r.status === 200,
+    'catalog status is 200': (r) => r.status === 200,
+    'catalog has items': (r) => JSON.parse(r.body).items.length > 0,
   });
   
-  res = http.get(`${baseUrl}/b/numbers?count=5`);
+  // 2. Filtrar filmes
+  res = http.get(`${baseUrl}/api/content?type=movies&limit=10`);
   check(res, {
-    'status is 200': (r) => r.status === 200,
+    'movies status is 200': (r) => r.status === 200,
+  });
+  
+  // 3. Buscar metadados de um conteúdo específico
+  res = http.get(`${baseUrl}/api/metadata/m1?userId=user_${__VU}`);
+  check(res, {
+    'metadata status is 200': (r) => r.status === 200,
+    'metadata has items': (r) => JSON.parse(r.body).metadata.length > 0,
+  });
+  
+  // 4. Endpoint combinado (browse)
+  res = http.get(`${baseUrl}/api/browse?type=series&limit=5`);
+  check(res, {
+    'browse status is 200': (r) => r.status === 200,
   });
   
   sleep(0.1);

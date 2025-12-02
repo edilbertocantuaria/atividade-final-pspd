@@ -1,6 +1,88 @@
-# Monitoramento K8s - Projeto PSPD
+# Plataforma de Streaming - Monitoramento K8s
 
-Aplicação gRPC distribuída (P→A,B) com Prometheus/Grafana em cluster multi-node Kubernetes.
+Aplicação de streaming baseada em microsserviços gRPC com monitoramento Prometheus/Grafana em cluster Kubernetes multi-node.
+
+**Frontend**: https://streaming-app-design.vercel.app/
+
+---
+
+## ⚡ Arquitetura da Aplicação
+
+```
+Frontend (Next.js) → Gateway P (Node.js/Express)
+                          ↓ gRPC
+                     ┌────┴────┐
+                     ↓         ↓
+              Service A    Service B
+              (Catálogo)   (Metadados/Recomendações)
+              Python       Python Streaming
+```
+
+### Módulos da Aplicação
+
+**Gateway P (Web API)**:
+- Recebe requisições HTTP do frontend Next.js
+- Expõe API REST: `/api/content`, `/api/metadata/:id`, `/api/browse`
+- Converte HTTP → gRPC para comunicação com microsserviços
+- Métricas Prometheus em `/metrics`
+
+**Service A (Catálogo de Conteúdo)**:
+- Fornece catálogo de filmes, séries e canais ao vivo
+- RPC unária: `GetContent(type, limit, genre) → ContentResponse`
+- Filtros: tipo de conteúdo, gênero, limite de resultados
+- Retorna: 12 itens (4 filmes + 4 séries + 3 canais + metadados)
+
+**Service B (Metadados e Recomendações)**:
+- Fornece metadados detalhados via streaming
+- RPC streaming: `StreamMetadata(contentId) → stream<MetadataItem>`
+- Retorna: diretor, elenco, similaridade, recomendações
+- Simulação de processamento incremental (análise de dados)
+
+---
+
+## 📊 Endpoints da API
+
+### `/api/content?type=movies&limit=10&genre=Ação`
+Retorna catálogo filtrado via Service A (gRPC unário)
+```json
+{
+  "items": [
+    {
+      "id": "m1",
+      "title": "A Jornada Infinita",
+      "type": "movie",
+      "genres": ["Ficção Científica", "Aventura"],
+      "rating": 8.7
+    }
+  ],
+  "total": 4,
+  "source": "ServiceA"
+}
+```
+
+### `/api/metadata/m1?userId=user123`
+Retorna metadados via Service B (gRPC streaming)
+```json
+{
+  "contentId": "m1",
+  "metadata": [
+    {"key": "director", "value": "James Cameron", "relevanceScore": 0.95},
+    {"key": "similar", "value": "Interestelar", "relevanceScore": 0.85}
+  ],
+  "source": "ServiceB"
+}
+```
+
+### `/api/browse?type=all&limit=10`
+**Endpoint combinado**: catálogo (A) + metadados do destaque (B)
+```json
+{
+  "catalog": [...],
+  "total": 12,
+  "featuredMetadata": [...],
+  "processingTime": "45.23ms"
+}
+```
 
 ---
 
@@ -57,12 +139,21 @@ HTTP Request → Gateway P (Node.js)
 
 ## 🧪 Testes de Carga (k6)
 
-| Teste | Duração | VUs | Objetivo |
-|-------|---------|-----|----------|
-| **baseline** | 2min | 10 | Linha de base |
-| **ramp** | 4.5min | 10→150 | Testar HPA |
-| **spike** | 1.5min | 10→200→10 | Resiliência |
-| **soak** | 11.5min | 50 | Estabilidade |
+Simulam tráfego de usuários acessando a plataforma de streaming:
+
+| Teste | Duração | VUs | Cenário Simulado |
+|-------|---------|-----|------------------|
+| **baseline** | 2min | 10 | Uso normal (navegação por catálogo) |
+| **ramp** | 4.5min | 10→150 | Horário nobre (gradual) - testa HPA |
+| **spike** | 1.5min | 10→200→10 | Lançamento de série viral |
+| **soak** | 11.5min | 50 | Maratona de fim de semana |
+
+### Padrão de Requisições
+Cada VU simula um usuário real:
+1. Lista catálogo completo: `GET /api/content?type=all`
+2. Filtra filmes: `GET /api/content?type=movies&limit=10`
+3. Busca metadados de um filme: `GET /api/metadata/m1`
+4. Consulta combinada: `GET /api/browse?type=series`
 
 ### Métricas Coletadas
 - Latência (p50, p95, p99)

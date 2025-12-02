@@ -25,23 +25,63 @@ STREAM_ITEMS = Counter(
     ['method']
 )
 
+# Base de metadados e recomendações
+METADATA_DB = {
+    "m1": [("director", "James Cameron", 0.95), ("cast", "Chris Evans, Zoe Saldana", 0.90), 
+           ("similar", "Interestelar", 0.85), ("similar", "Gravidade", 0.80)],
+    "m2": [("director", "Christopher Nolan", 0.95), ("cast", "Leonardo DiCaprio", 0.90),
+           ("similar", "Amnésia", 0.88), ("similar", "Ilha do Medo", 0.82)],
+    "m3": [("director", "Nancy Meyers", 0.92), ("cast", "Julia Roberts, Tom Hanks", 0.88),
+           ("similar", "Amor à Segunda Vista", 0.85), ("similar", "Você Tem Um Email", 0.80)],
+    "m4": [("director", "Ridley Scott", 0.94), ("cast", "Tom Hardy, Charlize Theron", 0.91),
+           ("similar", "Mad Max", 0.90), ("similar", "John Wick", 0.85)],
+    "s1": [("creator", "J.J. Abrams", 0.96), ("cast", "Millie Bobby Brown", 0.92),
+           ("similar", "Dark", 0.90), ("similar", "Stranger Things", 0.88)],
+    "s2": [("creator", "Vince Gilligan", 0.95), ("cast", "Bryan Cranston", 0.93),
+           ("similar", "True Detective", 0.89), ("similar", "Mindhunter", 0.84)],
+    "s3": [("creator", "Greg Garcia", 0.90), ("cast", "Amy Poehler", 0.87),
+           ("similar": "Modern Family", 0.88), ("similar", "Brooklyn Nine-Nine", 0.83)],
+    "s4": [("creator", "David Chase", 0.97), ("cast", "James Gandolfini", 0.95),
+           ("similar", "The Wire", 0.92), ("similar", "Breaking Bad", 0.90)],
+}
+
 class ServiceBImpl(services_pb2_grpc.ServiceBServicer):
-    def StreamNumbers(self, request, context):
+    def StreamMetadata(self, request, context):
+        """Retorna stream de metadados e recomendações para um conteúdo"""
         start = time.time()
         try:
-            count = request.count if request.count > 0 else 5
-            delay_ms = request.delay_ms if request.delay_ms > 0 else 0
-            for i in range(1, count + 1):
-                yield services_pb2.NumberReply(value=i)
-                STREAM_ITEMS.labels(method='StreamNumbers').inc()
-                if delay_ms > 0:
-                    time.sleep(delay_ms/1000.0)
-            REQUEST_COUNT.labels(method='StreamNumbers', status='success').inc()
+            content_id = request.content_id
+            metadata_list = METADATA_DB.get(content_id, [])
+            
+            # Simula processamento incremental (análise de dados)
+            for key, value, score in metadata_list:
+                time.sleep(0.01)  # Simula latência de processamento
+                yield services_pb2.MetadataItem(
+                    key=key,
+                    value=value,
+                    relevance_score=score
+                )
+                STREAM_ITEMS.labels(method='StreamMetadata').inc()
+            
+            # Adiciona recomendações genéricas se não houver metadados
+            if not metadata_list:
+                for i in range(3):
+                    time.sleep(0.01)
+                    yield services_pb2.MetadataItem(
+                        key="recommendation",
+                        value=f"Conteúdo recomendado #{i+1}",
+                        relevance_score=0.7 - (i * 0.1)
+                    )
+                    STREAM_ITEMS.labels(method='StreamMetadata').inc()
+            
+            REQUEST_COUNT.labels(method='StreamMetadata', status='success').inc()
+            
         except Exception as e:
-            REQUEST_COUNT.labels(method='StreamNumbers', status='error').inc()
-            raise
+            REQUEST_COUNT.labels(method='StreamMetadata', status='error').inc()
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(f"Error: {str(e)}")
         finally:
-            REQUEST_LATENCY.labels(method='StreamNumbers').observe(time.time() - start)
+            REQUEST_LATENCY.labels(method='StreamMetadata').observe(time.time() - start)
 
 def serve():
     # Start Prometheus metrics server

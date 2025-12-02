@@ -21,8 +21,10 @@ export const options = {
 export default function () {
   const baseUrl = __ENV.BASE_URL || 'http://localhost:8080';
   
+  // Simula pico de acesso (todos vendo a mesma série)
   http.batch([
-    ['GET', `${baseUrl}/a/hello?name=spike${__VU}`],
-    ['GET', `${baseUrl}/b/numbers?count=5`],
+    ['GET', `${baseUrl}/api/content?type=series&limit=10`],
+    ['GET', `${baseUrl}/api/metadata/s1?userId=user${__VU}`],
+    ['GET', `${baseUrl}/api/browse?type=series&limit=5`],
   ]);
 }
