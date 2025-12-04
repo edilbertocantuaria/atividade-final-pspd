@@ -8,26 +8,26 @@
 ────────────────────────────────────────────────────────────────────────────────
 
 📊 BASELINE:
-  • Throughput: 1890.2 req/s
-  • Latência P95: 9.1 ms
+  • Throughput: 1286.6 req/s
+  • Latência P95: 15.1 ms
   • Success Rate: 50.0%
   • Failure Rate: 0.00%
 
 📊 RAMP:
-  • Throughput: 200.9 req/s
-  • Latência P95: 2.0 ms
+  • Throughput: 201.9 req/s
+  • Latência P95: 2.4 ms
   • Success Rate: 100.0%
   • Failure Rate: 0.00%
 
 📊 SPIKE:
-  • Throughput: 3075.5 req/s
-  • Latência P95: 224.9 ms
+  • Throughput: 2782.5 req/s
+  • Latência P95: 270.6 ms
   • Success Rate: 100.0%
   • Failure Rate: 0.00%
 
 📊 SOAK:
   • Throughput: 93.4 req/s
-  • Latência P95: 2.2 ms
+  • Latência P95: 3.5 ms
   • Success Rate: 100.0%
   • Failure Rate: 0.00%
 
@@ -42,28 +42,33 @@
 ────────────────────────────────────────────────────────────────────────────────
 
 📊 BASELINE:
-  • Throughput: 2068.0 req/s
-  • Latência P95: 7.7 ms
+  • Throughput: 1898.5 req/s
+  • Latência P95: 8.9 ms
   • Success Rate: 50.0%
   • Failure Rate: 0.00%
 
 📊 RAMP:
-  • Throughput: 201.6 req/s
-  • Latência P95: 2.1 ms
+  • Throughput: 200.5 req/s
+  • Latência P95: 3.5 ms
   • Success Rate: 100.0%
   • Failure Rate: 0.00%
 
 📊 SPIKE:
-  • Throughput: 2762.3 req/s
-  • Latência P95: 277.9 ms
+  • Throughput: 2584.5 req/s
+  • Latência P95: 279.8 ms
   • Success Rate: 100.0%
   • Failure Rate: 0.00%
 
 📊 SOAK:
-  • Throughput: 93.2 req/s
-  • Latência P95: 3.2 ms
+  • Throughput: 93.5 req/s
+  • Latência P95: 3.0 ms
   • Success Rate: 100.0%
   • Failure Rate: 0.00%
+
+🔄 HPA Scaling (Spike):
+  • a-hpa: 2 réplicas (min=2, max=5)
+  • b-hpa: 2 réplicas (min=2, max=5)
+  • p-hpa: 2 réplicas (min=2, max=10)
 
 
 ────────────────────────────────────────────────────────────────────────────────
@@ -71,26 +76,26 @@
 ────────────────────────────────────────────────────────────────────────────────
 
 📊 BASELINE:
-  • Throughput: 1817.9 req/s
-  • Latência P95: 9.3 ms
+  • Throughput: 2192.5 req/s
+  • Latência P95: 7.6 ms
   • Success Rate: 50.0%
   • Failure Rate: 0.00%
 
 📊 RAMP:
-  • Throughput: 199.5 req/s
-  • Latência P95: 7.7 ms
+  • Throughput: 200.8 req/s
+  • Latência P95: 3.5 ms
   • Success Rate: 100.0%
   • Failure Rate: 0.00%
 
 📊 SPIKE:
-  • Throughput: 2225.9 req/s
-  • Latência P95: 324.1 ms
+  • Throughput: 488.0 req/s
+  • Latência P95: 1123.3 ms
   • Success Rate: 100.0%
   • Failure Rate: 0.00%
 
 📊 SOAK:
-  • Throughput: 93.3 req/s
-  • Latência P95: 2.3 ms
+  • Throughput: 93.5 req/s
+  • Latência P95: 3.4 ms
   • Success Rate: 100.0%
   • Failure Rate: 0.00%
 
@@ -105,25 +110,25 @@
 ────────────────────────────────────────────────────────────────────────────────
 
 📊 BASELINE:
-  • Throughput: 1903.9 req/s
-  • Latência P95: 8.7 ms
+  • Throughput: 1901.8 req/s
+  • Latência P95: 8.3 ms
   • Success Rate: 50.0%
   • Failure Rate: 0.00%
 
 📊 RAMP:
-  • Throughput: 198.7 req/s
-  • Latência P95: 5.4 ms
+  • Throughput: 201.9 req/s
+  • Latência P95: 2.1 ms
   • Success Rate: 100.0%
   • Failure Rate: 0.00%
 
 📊 SPIKE:
-  • Throughput: 2818.4 req/s
-  • Latência P95: 256.2 ms
+  • Throughput: 2762.3 req/s
+  • Latência P95: 270.2 ms
   • Success Rate: 100.0%
   • Failure Rate: 0.00%
 
 📊 SOAK:
-  • Throughput: 93.3 req/s
+  • Throughput: 93.5 req/s
   • Latência P95: 2.2 ms
   • Success Rate: 100.0%
   • Failure Rate: 0.00%
@@ -139,26 +144,26 @@
 ────────────────────────────────────────────────────────────────────────────────
 
 📊 BASELINE:
-  • Throughput: 2223.4 req/s
-  • Latência P95: 6.9 ms
+  • Throughput: 998.4 req/s
+  • Latência P95: 18.7 ms
   • Success Rate: 50.0%
   • Failure Rate: 0.00%
 
 📊 RAMP:
-  • Throughput: 200.3 req/s
-  • Latência P95: 2.1 ms
+  • Throughput: 195.6 req/s
+  • Latência P95: 36.8 ms
   • Success Rate: 100.0%
   • Failure Rate: 0.00%
 
 📊 SPIKE:
-  • Throughput: 2839.3 req/s
-  • Latência P95: 246.6 ms
-  • Success Rate: 100.0%
-  • Failure Rate: 0.00%
+  • Throughput: 146.1 req/s
+  • Latência P95: 215.6 ms
+  • Success Rate: 96.6%
+  • Failure Rate: 3.37%
 
 📊 SOAK:
-  • Throughput: 93.4 req/s
-  • Latência P95: 2.0 ms
+  • Throughput: 93.5 req/s
+  • Latência P95: 2.2 ms
   • Success Rate: 100.0%
   • Failure Rate: 0.00%
 
@@ -171,9 +176,9 @@ Spike Test (200 VUs):
 ────────────────────────────────────────────────────────────────────────────────
 Cenário                     Throughput        P95    Success     Pods
 ────────────────────────────────────────────────────────────────────────────────
-S1: Base (HPA)                3075.5/s      225ms     100.0%        3
-S2: 2 Réplicas                2762.3/s      278ms     100.0%        0
-S3: Distribuído               2225.9/s      324ms     100.0%        9
-S4: Recursos -50%             2818.4/s      256ms     100.0%        3
-S5: Sem HPA                   2839.3/s      247ms     100.0%        0
+S1: Base (HPA)                2782.5/s      271ms     100.0%        3
+S2: 2 Réplicas                2584.5/s      280ms     100.0%        6
+S3: Distribuído                488.0/s     1123ms     100.0%        9
+S4: Recursos -50%             2762.3/s      270ms     100.0%        3
+S5: Sem HPA                    146.1/s      216ms      96.6%        0
 ────────────────────────────────────────────────────────────────────────────────

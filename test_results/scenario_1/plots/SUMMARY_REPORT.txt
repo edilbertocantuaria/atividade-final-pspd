@@ -8,80 +8,120 @@
 ──────────────────────────────────────────────────────────────────────
 
 📊 Métricas de Performance (k6):
-  • Throughput: 1890.19 req/s
-  • Total de requisições: 189,027
-  • Latência média: 3.96 ms
-  • Latência p95: 9.13 ms
+  • Throughput: 1286.60 req/s
+  • Total de requisições: 128,225
+  • Latência média: 5.87 ms
+  • Latência p95: 15.11 ms
   • Taxa de sucesso: 100.00%
   • Taxa de falha: 0.00%
   • VUs máximos: 10
-  • Iterações: 189,027
+  • Iterações: 128,225
 
 🔄 Autoscaling (HPA):
   • a-hpa: 1 réplicas
   • b-hpa: 1 réplicas
   • p-hpa: 1 réplicas
 
+💻 Uso de Recursos:
+  • service-a:
+      CPU: 3m
+      Memory: 33Mi
+  • service-b:
+      CPU: 3m
+      Memory: 37Mi
+  • gateway-p:
+      CPU: 17m
+      Memory: 45Mi
 
 ──────────────────────────────────────────────────────────────────────
   RAMP
 ──────────────────────────────────────────────────────────────────────
 
 📊 Métricas de Performance (k6):
-  • Throughput: 200.89 req/s
-  • Total de requisições: 48,197
-  • Latência média: 1.37 ms
-  • Latência p95: 2.03 ms
+  • Throughput: 201.93 req/s
+  • Total de requisições: 48,276
+  • Latência média: 1.70 ms
+  • Latência p95: 2.44 ms
   • Taxa de sucesso: 100.00%
   • Taxa de falha: 0.00%
   • VUs máximos: 149
-  • Iterações: 32,149
+  • Iterações: 32,110
 
 🔄 Autoscaling (HPA):
   • a-hpa: 1 réplicas
   • b-hpa: 1 réplicas
   • p-hpa: 1 réplicas
 
+💻 Uso de Recursos:
+  • service-a:
+      CPU: 2m
+      Memory: 37Mi
+  • service-b:
+      CPU: 2m
+      Memory: 30Mi
+  • gateway-p:
+      CPU: 7m
+      Memory: 46Mi
 
 ──────────────────────────────────────────────────────────────────────
   SOAK
 ──────────────────────────────────────────────────────────────────────
 
 📊 Métricas de Performance (k6):
-  • Throughput: 93.36 req/s
-  • Total de requisições: 64,338
-  • Latência média: 1.42 ms
-  • Latência p95: 2.16 ms
+  • Throughput: 93.35 req/s
+  • Total de requisições: 64,244
+  • Latência média: 2.07 ms
+  • Latência p95: 3.52 ms
   • Taxa de sucesso: 100.00%
   • Taxa de falha: 0.00%
   • VUs máximos: 50
-  • Iterações: 32,169
+  • Iterações: 32,122
 
 🔄 Autoscaling (HPA):
   • a-hpa: 1 réplicas
   • b-hpa: 1 réplicas
   • p-hpa: 1 réplicas
 
+💻 Uso de Recursos:
+  • service-a:
+      CPU: 2m
+      Memory: 31Mi
+  • service-b:
+      CPU: 2m
+      Memory: 29Mi
+  • gateway-p:
+      CPU: 8m
+      Memory: 43Mi
 
 ──────────────────────────────────────────────────────────────────────
   SPIKE
 ──────────────────────────────────────────────────────────────────────
 
 📊 Métricas de Performance (k6):
-  • Throughput: 3075.47 req/s
-  • Total de requisições: 214,920
-  • Latência média: 74.20 ms
-  • Latência p95: 224.88 ms
+  • Throughput: 2782.48 req/s
+  • Total de requisições: 194,082
+  • Latência média: 82.62 ms
+  • Latência p95: 270.61 ms
   • Taxa de sucesso: 100.00%
   • Taxa de falha: 0.00%
   • VUs máximos: 200
-  • Iterações: 71,640
+  • Iterações: 64,694
 
 🔄 Autoscaling (HPA):
   • a-hpa: 1 réplicas
   • b-hpa: 1 réplicas
   • p-hpa: 1 réplicas
 
+💻 Uso de Recursos:
+  • service-a:
+      CPU: 24m
+      Memory: 33Mi
+  • service-b:
+      CPU: 24m
+      Memory: 34Mi
+  • gateway-p:
+      CPU: 28m
+      Memory: 32Mi
 
 ══════════════════════════════════════════════════════════════════════
   FIM DO RELATÓRIO
