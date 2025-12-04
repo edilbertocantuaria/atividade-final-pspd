@@ -44,10 +44,14 @@ def parse_k6_output(file_path):
         # Pegar últimas 100 linhas ou todas se houver menos
         content = ''.join(lines[-100:])
     
+    # Remover quebras de linha no meio das linhas de métricas para facilitar parsing
+    # Substitui quebras de linha seguidas de espaços por um único espaço
+    content = re.sub(r'\n\s+', ' ', content)
+    
     metrics = {}
     
     # Extrair http_req_duration (formato: min=X avg=Y med=Z max=W p(90)=T p(95)=V p(99)=U)
-    duration_match = re.search(r'http_req_duration[^\n]*min=([\d.]+)(\w+)\s+avg=([\d.]+)(\w+)\s+med=([\d.]+)(\w+)\s+max=([\d.]+)(\w+)\s+p\(90\)=([\d.]+)(\w+)\s+p\(95\)=([\d.]+)(\w+)', content)
+    duration_match = re.search(r'http_req_duration.*?min=([\d.\-]+)(\w+)\s+avg=([\d.\-]+)(\w+)\s+med=([\d.\-]+)(\w+)\s+max=([\d.\-]+)(\w+)\s+p\(90\)=([\d.\-]+)(\w+)\s+p\(95\)=([\d.\-]+)(\w+)', content)
     if duration_match:
         metrics['min_duration'] = float(duration_match.group(1))
         metrics['avg_duration'] = float(duration_match.group(3))
@@ -56,7 +60,7 @@ def parse_k6_output(file_path):
         metrics['p90_duration'] = float(duration_match.group(9))
         metrics['p95_duration'] = float(duration_match.group(11))
         # Tentar pegar p99 também
-        p99_match = re.search(r'p\(99\)=([\d.]+)(\w+)', content)
+        p99_match = re.search(r'p\(99\)=([\d.\-]+)(\w+)', content)
         if p99_match:
             metrics['p99_duration'] = float(p99_match.group(1))
     
@@ -99,7 +103,18 @@ def parse_hpa_status(file_path):
         return {}
     
     with open(file_path) as f:
-        content = f.read().replace('\n', ' ')  # Join all lines to handle wrapped text
+        content = f.read()
+    
+    # Verificar se há erro de conexão
+    if 'connection' in content.lower() and 'refused' in content.lower():
+        return {}
+    
+    # Verificar se está vazio
+    if not content.strip():
+        return {}
+    
+    # Join all lines to handle wrapped text
+    content = content.replace('\n', ' ')
     
     # Split by spaces
     parts = content.split()
@@ -139,7 +154,17 @@ def parse_pod_metrics(file_path):
         return {}
     
     with open(file_path) as f:
-        lines = f.readlines()
+        content = f.read()
+    
+    # Verificar se há erro de conexão
+    if 'connection' in content.lower() and 'refused' in content.lower():
+        return {}
+    
+    # Verificar se está vazio
+    if not content.strip():
+        return {}
+    
+    lines = content.split('\n')
     
     metrics = {}
     for line in lines[1:]:  # Skip header
@@ -342,6 +367,8 @@ def plot_hpa_scaling(metrics):
     services = ['p-hpa', 'a-hpa', 'b-hpa']
     service_names = ['Gateway P', 'Service A', 'Service B']
     
+    has_any_data = False
+    
     for idx, (service, name) in enumerate(zip(services, service_names)):
         ax = axes[idx]
         scenarios = []
@@ -349,12 +376,13 @@ def plot_hpa_scaling(metrics):
         replicas_post = []
         
         for scenario, data in sorted(metrics.items()):
-            if 'hpa' in data:
+            if 'hpa' in data and (data['hpa']['pre'] or data['hpa']['post']):
                 scenarios.append(scenario.upper())
                 pre_val = data['hpa']['pre'].get(service, {}).get('replicas', 0)
                 post_val = data['hpa']['post'].get(service, {}).get('replicas', 0)
                 replicas_pre.append(pre_val)
                 replicas_post.append(post_val)
+                has_any_data = True
         
         if scenarios:
             x = range(len(scenarios))
@@ -378,8 +406,20 @@ def plot_hpa_scaling(metrics):
             ax.grid(True, alpha=0.3, axis='y')
             ax.set_ylim(0, max(max(replicas_pre + replicas_post, default=1) * 1.2, 1))
             ax.set_ylim(0, max(replicas_post + [1]) + 1)
+        else:
+            # Mostrar mensagem informativa
+            ax.text(0.5, 0.5, f'{name}\n\n⚠️ Dados de HPA não disponíveis\n\nVerifique se o cluster Kubernetes\nestá em execução durante os testes',
+                   ha='center', va='center', fontsize=11, transform=ax.transAxes,
+                   bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.3))
+            ax.set_xlim(0, 1)
+            ax.set_ylim(0, 1)
+            ax.axis('off')
     
-    plt.suptitle('Horizontal Pod Autoscaler - Evolução de Réplicas', fontsize=14, fontweight='bold')
+    if not has_any_data:
+        plt.suptitle('Horizontal Pod Autoscaler - Dados Não Disponíveis', fontsize=14, fontweight='bold', color='#e74c3c')
+    else:
+        plt.suptitle('Horizontal Pod Autoscaler - Evolução de Réplicas', fontsize=14, fontweight='bold')
+    
     plt.tight_layout()
     plt.savefig(PLOTS_DIR / "04_hpa_scaling.png", dpi=300, bbox_inches='tight')
     print(f"✅ Gráfico salvo: {PLOTS_DIR / '04_hpa_scaling.png'}")
@@ -391,9 +431,12 @@ def plot_resource_usage(metrics):
     
     services_map = {'gateway-p': 'Gateway P', 'service-a': 'Service A', 'service-b': 'Service B'}
     
+    has_cpu_data = False
+    has_mem_data = False
+    
     # CPU Usage
     for scenario, data in sorted(metrics.items()):
-        if 'pods' in data and 'post' in data['pods']:
+        if 'pods' in data and 'post' in data['pods'] and data['pods']['post']:
             x_pos = []
             cpu_values = []
             labels = []
@@ -406,18 +449,27 @@ def plot_resource_usage(metrics):
             if cpu_values:
                 x = range(len(labels))
                 ax1.plot(x, cpu_values, marker='o', label=scenario.upper(), linewidth=2)
+                has_cpu_data = True
     
-    if ax1.get_lines():
+    if has_cpu_data and ax1.get_lines():
         ax1.set_xticks(range(len(labels)))
         ax1.set_xticklabels(labels)
         ax1.set_ylabel('CPU (millicores)', fontsize=11, fontweight='bold')
         ax1.set_title('Uso de CPU por Serviço', fontsize=12, fontweight='bold')
         ax1.legend()
         ax1.grid(True, alpha=0.3)
+    else:
+        ax1.text(0.5, 0.5, '⚠️ Dados de CPU não disponíveis\n\nVerifique se o metrics-server está instalado:\nkubectl top pods -n pspd',
+                ha='center', va='center', fontsize=11, transform=ax1.transAxes,
+                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.3))
+        ax1.set_xlim(0, 1)
+        ax1.set_ylim(0, 1)
+        ax1.set_title('Uso de CPU por Serviço - Dados Não Disponíveis', fontsize=12, fontweight='bold')
+        ax1.axis('off')
     
     # Memory Usage
     for scenario, data in sorted(metrics.items()):
-        if 'pods' in data and 'post' in data['pods']:
+        if 'pods' in data and 'post' in data['pods'] and data['pods']['post']:
             mem_values = []
             labels = []
             
@@ -429,16 +481,29 @@ def plot_resource_usage(metrics):
             if mem_values:
                 x = range(len(labels))
                 ax2.plot(x, mem_values, marker='s', label=scenario.upper(), linewidth=2)
+                has_mem_data = True
     
-    if ax2.get_lines():
+    if has_mem_data and ax2.get_lines():
         ax2.set_xticks(range(len(labels)))
         ax2.set_xticklabels(labels)
         ax2.set_ylabel('Memory (Mi)', fontsize=11, fontweight='bold')
         ax2.set_title('Uso de Memória por Serviço', fontsize=12, fontweight='bold')
         ax2.legend()
         ax2.grid(True, alpha=0.3)
+    else:
+        ax2.text(0.5, 0.5, '⚠️ Dados de Memória não disponíveis\n\nVerifique se o metrics-server está instalado:\nkubectl top pods -n pspd',
+                ha='center', va='center', fontsize=11, transform=ax2.transAxes,
+                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.3))
+        ax2.set_xlim(0, 1)
+        ax2.set_ylim(0, 1)
+        ax2.set_title('Uso de Memória por Serviço - Dados Não Disponíveis', fontsize=12, fontweight='bold')
+        ax2.axis('off')
     
-    plt.suptitle('Análise de Recursos (CPU e Memória)', fontsize=14, fontweight='bold')
+    if not has_cpu_data and not has_mem_data:
+        plt.suptitle('Análise de Recursos (CPU e Memória) - Dados Não Disponíveis', fontsize=14, fontweight='bold', color='#e74c3c')
+    else:
+        plt.suptitle('Análise de Recursos (CPU e Memória)', fontsize=14, fontweight='bold')
+    
     plt.tight_layout()
     plt.savefig(PLOTS_DIR / "05_resource_usage.png", dpi=300, bbox_inches='tight')
     print(f"✅ Gráfico salvo: {PLOTS_DIR / '05_resource_usage.png'}")

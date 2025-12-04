@@ -8,14 +8,19 @@ RESULTS_DIR="$PROJECT_ROOT/test_results/scenario_5"
 echo "🚀 SCENARIO 5: No HPA (5 fixed replicas, no autoscaling)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# Setup
-bash "$SCRIPT_DIR/00_setup.sh" || { echo "❌ Setup falhou"; exit 1; }
+# Array com os testes a executar
+TESTS=("baseline" "ramp" "spike" "soak")
 
-# Testes
-bash "$SCRIPT_DIR/baseline.sh"
-bash "$SCRIPT_DIR/ramp.sh"
-bash "$SCRIPT_DIR/spike.sh"
-bash "$SCRIPT_DIR/soak.sh"
+# Executar cada teste com setup antes
+for test in "${TESTS[@]}"; do
+    echo ""
+    echo "📋 Executando setup para teste: $test"
+    bash "$SCRIPT_DIR/00_setup.sh" || { echo "❌ Setup falhou para $test"; exit 1; }
+    
+    echo ""
+    echo "🧪 Executando teste: $test"
+    bash "$SCRIPT_DIR/${test}.sh" || { echo "⚠️  Teste $test falhou"; }
+done
 \necho ""
 echo "📊 Gerando gráficos de análise..."
 python3 "$PROJECT_ROOT/scripts/analyze_results.py" "$RESULTS_DIR"

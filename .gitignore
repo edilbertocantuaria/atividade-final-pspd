@@ -43,10 +43,25 @@ package-lock.json
 .docker/
 
 # Test Results - Nova arquitetura modular (test_results/)
-# Ignorar arquivos grandes de métricas (k6 pode gerar 50-100MB por teste)
-test_results/*/*/metrics.json
-test_results/*/*/output.txt
-test_results/*/*/*.txt
+# Ignorar resultados brutos de testes (arquivos grandes)
+test_results/*/baseline/*
+test_results/*/ramp/*
+test_results/*/spike/*
+test_results/*/soak/*
+
+# Mas permitir .gitkeep para manter estrutura de diretórios
+!test_results/*/baseline/.gitkeep
+!test_results/*/ramp/.gitkeep
+!test_results/*/spike/.gitkeep
+!test_results/*/soak/.gitkeep
+
+# Permitir os plots e relatórios gerados
+!test_results/*/plots/
+!test_results/*/plots/*.png
+!test_results/*/plots/*.txt
+!test_results/scenario-comparison/
+!test_results/scenario-comparison/*.png
+!test_results/scenario-comparison/*.txt
 
 # Results antigos (deprecated - usar test_results/)
 results/

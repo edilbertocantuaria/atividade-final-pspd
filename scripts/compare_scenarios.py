@@ -63,6 +63,9 @@ def parse_output_file(file_path: Path) -> Dict[str, Any]:
     with open(file_path) as f:
         content = f.read()
     
+    # Remover quebras de linha no meio das linhas de métricas
+    content = re.sub(r'\n\s+', ' ', content)
+    
     # Throughput
     throughput_match = re.search(r'http_reqs.*?([\d.]+)/s', content)
     if throughput_match:
@@ -74,17 +77,17 @@ def parse_output_file(file_path: Path) -> Dict[str, Any]:
         metrics['total_requests'] = int(total_match.group(1))
     
     # Latência média
-    avg_match = re.search(r'http_req_duration.*?avg=([\d.]+)ms', content)
+    avg_match = re.search(r'http_req_duration.*?avg=([\d.\-]+)ms', content)
     if avg_match:
         metrics['latency_avg'] = float(avg_match.group(1))
     
     # Latência P95
-    p95_match = re.search(r'http_req_duration.*?p\(95\)=([\d.]+)ms', content)
+    p95_match = re.search(r'http_req_duration.*?p\(95\)=([\d.\-]+)ms', content)
     if p95_match:
         metrics['latency_p95'] = float(p95_match.group(1))
     
     # Latência P99
-    p99_match = re.search(r'http_req_duration.*?p\(99\)=([\d.]+)ms', content)
+    p99_match = re.search(r'http_req_duration.*?p\(99\)=([\d.\-]+)ms', content)
     if p99_match:
         metrics['latency_p99'] = float(p99_match.group(1))
     
