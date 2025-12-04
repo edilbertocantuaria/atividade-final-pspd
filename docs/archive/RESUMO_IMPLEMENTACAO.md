@@ -1,5 +1,8 @@
 # Resumo da Implementação - Requisitos Críticos
 
+> **⚠️ DOCUMENTO ARQUIVADO** - Algumas referências a scripts podem estar desatualizadas.  
+> Para instruções atualizadas, consulte: `QUICKSTART.md` e `README.md`
+
 ## 📊 Status: 100% COMPLETO ✅
 
 ### Requisitos Acadêmicos Implementados

@@ -1,5 +1,8 @@
 # ✅ Análise Comparativa de Cenários - Implementação Completa
 
+> **⚠️ DOCUMENTO ARQUIVADO** - Algumas referências a scripts podem estar desatualizadas.  
+> Para análise atualizada, consulte: `docs/ANALISE_CENARIOS.md`
+
 ## 📋 Requisito Atendido
 
 **Item 3.c da Atividade**: "Desenho de cenários variando características da aplicação e do cluster K8S"

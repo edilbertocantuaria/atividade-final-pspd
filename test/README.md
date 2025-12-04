@@ -4,19 +4,49 @@
 
 ```
 test/
-├── scenario_1/       # Baseline (1 replica + HPA 1-10)
-├── scenario_2/       # Warm Start (2 replicas + HPA 2-10)
-├── scenario_3/       # Distribution (3 replicas + anti-affinity + HPA 3-12)
-├── scenario_4/       # Limited Resources (1 replica + 50% CPU/Mem + HPA 1-15)
-└── scenario_5/       # No HPA (5 fixed replicas)
+├── run_all_scenarios.sh  # ⭐ Executa TODOS os 5 cenários
+├── common/
+│   ├── k8s_check.sh      # Verificação automática de cluster
+│   └── README.md
+├── scenario_1/           # Baseline (1 replica + HPA 1-10)
+├── scenario_2/           # Warm Start (2 replicas + HPA 2-10)
+├── scenario_3/           # Distribution (3 replicas + anti-affinity + HPA 3-12)
+├── scenario_4/           # Limited Resources (1 replica + 50% CPU/Mem + HPA 1-15)
+└── scenario_5/           # No HPA (5 fixed replicas)
 
 test_results/
 ├── scenario_1/
 ├── scenario_2/
 ├── scenario_3/
 ├── scenario_4/
-└── scenario_5/
+├── scenario_5/
+└── scenario-comparison/  # Comparação entre todos os cenários
 ```
+
+---
+
+## 🎯 Scripts Principais
+
+### **`./run_all_scenarios.sh`** - Orquestrador Completo
+
+Executa **todos os 5 cenários** sequencialmente (2-3 horas):
+
+```bash
+./run_all_scenarios.sh
+```
+
+Processo: Setup Cenário → 4 Testes → Métricas → Próximo Cenário
+
+### **`../scripts/run_all_tests.sh`** - Testes Rápidos
+
+Executa 4 testes no cenário atual (~20 min):
+
+```bash
+cd ..
+./scripts/run_all_tests.sh all
+```
+
+---
 
 ## 🚀 Execução
 

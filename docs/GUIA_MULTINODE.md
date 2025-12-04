@@ -10,24 +10,58 @@
 
 ## 🚀 Setup Completo em 3 Passos
 
-### Passo 1: Criar Cluster Multi-Node (1 master + 2 workers)
+### Passo 1: Criar Cluster Multi-Node (1 control-plane + 2 workers)
 
 ```bash
-./scripts/setup_multinode_cluster.sh
+# Criar cluster com 3 nodes
+minikube start --nodes 3 --cpus 4 --memory 8192
+
+# Habilitar addons necessários
+minikube addons enable metrics-server
+minikube addons enable ingress
+
+# Verificar nodes
+kubectl get nodes
 ```
 
-Este script automaticamente:
-- ✅ Cria cluster com 3 nós (1 master + 2 workers)
+Este processo automaticamente:
+- ✅ Cria cluster com 3 nós (1 control-plane + 2 workers)
 - ✅ Habilita metrics-server e ingress
-- ✅ Instala kube-prometheus-stack (Prometheus + Grafana + Alertmanager)
-- ✅ Configura acesso via NodePort
+- ✅ Configura rede entre os nós
 
-**Tempo estimado**: 5-10 minutos
+**Tempo estimado**: 3-5 minutos
+
+### Passo 1.5: Instalar Prometheus Stack (Opcional)
+
+```bash
+# Adicionar repositório Helm
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+
+# Instalar stack completo
+helm install prometheus prometheus-community/kube-prometheus-stack \
+  --namespace monitoring --create-namespace \
+  --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false
+```
+
+Instala:
+- ✅ Prometheus Operator
+- ✅ Grafana com dashboards pré-configurados
+- ✅ Alertmanager
+- ✅ ServiceMonitors automáticos
+
+**Tempo estimado**: 3-5 minutos
 
 ### Passo 2: Deploy das Aplicações
 
 ```bash
-# Build e deploy completo
+# Build das imagens no contexto Docker do Minikube
+eval $(minikube docker-env)
+docker build -t a-py:latest ./services/a_py
+docker build -t b-py:latest ./services/b_py
+docker build -t p-node:latest ./gateway_p_node
+
+# Deploy completo
 ./scripts/deploy.sh setup
 
 # Configurar ServiceMonitors para Prometheus

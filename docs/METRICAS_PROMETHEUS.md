@@ -20,7 +20,7 @@ Todos os três serviços (A, B e P) foram instrumentados com métricas customiza
 - **Tipo**: Counter
 - **Descrição**: Total de requisições gRPC recebidas pelo serviço A
 - **Labels**:
-  - `method`: Nome do método gRPC (ex: `SayHello`)
+  - `method`: Nome do método gRPC (ex: `GetContent`)
   - `status`: Resultado (`success` ou `error`)
 
 #### `grpc_server_request_duration_seconds`
@@ -63,7 +63,7 @@ histogram_quantile(0.99, rate(grpc_server_request_duration_seconds_bucket{app="a
 - **Tipo**: Counter
 - **Descrição**: Total de requisições gRPC recebidas pelo serviço B
 - **Labels**:
-  - `method`: Nome do método gRPC (ex: `StreamNumbers`)
+  - `method`: Nome do método gRPC (ex: `StreamMetadata`)
   - `status`: Resultado (`success` ou `error`)
 
 #### `grpc_server_request_duration_seconds`
@@ -83,7 +83,7 @@ histogram_quantile(0.99, rate(grpc_server_request_duration_seconds_bucket{app="a
 
 ```promql
 # Taxa de requisições streaming por segundo
-rate(grpc_server_requests_total{app="b",method="StreamNumbers"}[1m])
+rate(grpc_server_requests_total{app="b",method="StreamMetadata"}[1m])
 
 # Items streamed por segundo
 rate(grpc_server_stream_items_total{app="b"}[1m])
@@ -112,7 +112,7 @@ histogram_quantile(0.95, rate(grpc_server_request_duration_seconds_bucket{app="b
 - **Descrição**: Total de requisições HTTP recebidas pelo gateway
 - **Labels**:
   - `method`: Método HTTP (ex: `GET`)
-  - `route`: Rota acessada (ex: `/a/hello`)
+  - `route`: Rota acessada (ex: `/api/content`)
   - `status_code`: Código de resposta HTTP
 
 #### `http_request_duration_seconds`
@@ -329,7 +329,7 @@ sum(rate(grpc_client_requests_total{app="p",status="success"}[1m])) by (service,
 rate(grpc_server_stream_items_total{app="b"}[1m])
 
 # Streams ativos
-grpc_server_requests_total{app="b",method="StreamNumbers"} - grpc_server_requests_total{app="b",method="StreamNumbers"} offset 1m
+grpc_server_requests_total{app="b",method="StreamMetadata"} - grpc_server_requests_total{app="b",method="StreamMetadata"} offset 1m
 ```
 
 ---
@@ -389,8 +389,8 @@ kubectl exec -n pspd <pod-a> -- curl localhost:9101/metrics
 - Métricas tipo **Counter** e **Histogram** só aparecem após receber dados
 - Faça requisições de teste:
 ```bash
-curl http://localhost:8080/a/hello?name=test
-curl http://localhost:8080/b/numbers?count=10
+curl "http://localhost:8080/api/content?type=all&limit=5"
+curl "http://localhost:8080/api/metadata/m1?userId=test"
 ```
 
 ### Port-forward falha

@@ -2,58 +2,146 @@
 
 ## 🚀 Setup (executar 1 vez)
 
-### 1. Criar Cluster Multi-Node
+### 1. Criar Cluster Kubernetes
 ```bash
-./scripts/setup_multinode_cluster.sh
-```
-**O que faz**: Cria cluster (1 master + 2 workers) + instala Prometheus/Grafana  
-**Tempo**: ~10 minutos
+# Criar cluster Minikube
+minikube start --nodes 3 --cpus 4 --memory 8192
 
-### 2. Deploy da Aplicação
-```bash
-kubectl apply -f k8s/
-kubectl apply -f k8s/monitoring/
+# Habilitar addons necessários
+minikube addons enable metrics-server
+minikube addons enable ingress
+
+# Verificar nodes
+kubectl get nodes
 ```
-**O que faz**: Deploya serviços A, B, P + HPA + ServiceMonitors  
+**Tempo**: ~5 minutos  
+**Resultado**: 1 control-plane + 2 workers
+
+### 2. Instalar Prometheus Stack (opcional)
+```bash
+# Adicionar repositório Helm
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+
+# Instalar Prometheus + Grafana
+helm install prometheus prometheus-community/kube-prometheus-stack \
+  --namespace monitoring --create-namespace \
+  --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false
+```
+**Tempo**: ~5 minutos  
+**Opcional**: Pode pular este passo se não precisar de monitoramento
+
+> ℹ️ **Avisos normais durante instalação**:
+> - `Warning: unrecognized format "int32"/"int64"` - Avisos cosméticos, pode ignorar
+> - `Warning: spec.SessionAffinity is ignored` - Comportamento esperado de headless services
+> - Se aparecer `STATUS: deployed` no final, instalação foi bem-sucedida! ✅
+
+**Verificar instalação**:
+```bash
+# Aguardar pods ficarem prontos (~2-3 min)
+kubectl get pods -n monitoring
+
+# Todos devem estar Running/Completed
+```
+
+### 3. Deploy da Aplicação
+```bash
+# Build das imagens (dentro do contexto Docker do Minikube)
+eval $(minikube -p minikube docker-env)
+docker build -t a-py:latest ./services/a_py
+docker build -t b-py:latest ./services/b_py
+docker build -t p-node:latest ./gateway_p_node
+
+# Deploy dos serviços
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/
+kubectl apply -f k8s/monitoring/  # Apenas se instalou Prometheus
+```
+**Tempo**: ~3 minutos  
 **Verificar**: `kubectl get pods -n pspd` (todos devem estar `Running`)
 
 ---
 
 ## 🧪 Executar Testes de Carga
 
-### Testes Básicos (4 cenários k6)
+### Opção 1: Testes Rápidos em Cenário Único
 ```bash
+# Executar 4 testes k6 no cenário atual (baseline, ramp, spike, soak)
 ./scripts/run_all_tests.sh all
 ```
-**O que faz**: Executa baseline, ramp, spike, soak  
+**O que faz**: Executa baseline, ramp, spike, soak no cenário deployado  
 **Tempo**: ~20 minutos  
 **Resultados**: `results/plots/*.png`
 
-### Análise Comparativa (5 cenários K8s)
+**Testes individuais**:
+```bash
+./scripts/run_all_tests.sh baseline  # Apenas baseline
+./scripts/run_all_tests.sh spike     # Apenas spike
+./scripts/run_all_tests.sh monitor   # Monitor em tempo real
+```
+
+### Opção 2: Análise Comparativa Completa (5 Cenários)
+```bash
+# Executa TODOS os 5 cenários com 4 testes cada = 20 execuções
+./test/run_all_scenarios.sh
+```
+**O que faz**: 
+- Setup do Cenário 1 → 4 testes → Coleta métricas
+- Setup do Cenário 2 → 4 testes → Coleta métricas
+- ... repete para todos os 5 cenários
+
+**Tempo**: 2-3 horas  
+**Resultados**: `test_results/scenario_*/*.png`
+
+**Gerar comparação entre cenários**:
 ```bash
 ./scripts/run_scenario_comparison.sh --all
 ```
-**O que faz**: Testa 5 configurações diferentes de deployment  
-**Tempo**: 2-3 horas  
-**Resultados**: `scenario-comparison/*.png`
+**Resultados**: `test_results/scenario-comparison/*.png`
 
 ---
 
 ## 📊 Acessar Monitoramento
 
+> ⚠️ **Importante**: Os serviços estão dentro do cluster (ClusterIP), não expostos externamente.  
+> Você precisa fazer **port-forward** para acessá-los do seu navegador.
+
 ### Grafana
 ```bash
+# Em um terminal separado (deixe rodando)
 kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80
 ```
 Acesse: http://localhost:3000  
-Login: **admin** / **admin**
+Login: **admin**
+senha: **admin**
+
+**Caso precise recuperar senha**:
+```bash
+kubectl get secret -n monitoring prometheus-grafana -o jsonpath="{.data.admin-password}" | base64 -d && echo
+```
+
+> 💡 A senha é gerada aleatoriamente durante a instalação do Helm.  
+> Se esquecer, use o comando acima para recuperá-la.
 
 ### Prometheus
 ```bash
+# Em outro terminal separado (deixe rodando)
 kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090
 ```
 Acesse: http://localhost:9090  
 Ir em: **Status → Targets** (verificar se `serviceMonitor/pspd/*` estão UP)
+
+### Atalho: Abrir ambos em background
+```bash
+# Grafana
+kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80 &
+
+# Prometheus  
+kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090 &
+
+# Para parar depois:
+pkill -f "port-forward.*monitoring"
+```
 
 ---
 
@@ -103,8 +191,10 @@ kubectl logs -n pspd -l app=p --tail=50
 kubectl port-forward -n pspd svc/p-svc 8080:80
 
 # Fazer requisições
-curl http://localhost:8080/a/hello?name=teste
-curl http://localhost:8080/b/numbers?count=5
+curl "http://localhost:8080/api/content?type=all&limit=10"
+curl "http://localhost:8080/api/content?type=movies&limit=5"
+curl "http://localhost:8080/api/metadata/m1?userId=teste"
+curl "http://localhost:8080/api/browse?type=series&limit=3"
 
 # Ver métricas direto
 kubectl port-forward -n pspd svc/a-svc 9101:9101
@@ -155,6 +245,14 @@ kubectl exec -n pspd <pod-name> -- curl localhost:9101/metrics
 # 3. Ver targets no Prometheus
 # http://localhost:9090/targets → procurar "pspd"
 ```
+
+### Avisos durante instalação do Helm
+```
+Warning: unrecognized format "int32"/"int64"
+Warning: spec.SessionAffinity is ignored
+```
+**Solução**: Ignorar completamente! São avisos cosméticos que não afetam o funcionamento.  
+**Verificar sucesso**: Se aparecer `STATUS: deployed`, instalação foi bem-sucedida ✅
 
 ---
 

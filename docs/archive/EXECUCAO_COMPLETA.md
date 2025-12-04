@@ -1,6 +1,9 @@
 # 🚀 GUIA DE EXECUÇÃO COMPLETA - TODOS OS TESTES
 
-> **Este é o ÚNICO arquivo que você precisa ler para executar TUDO do zero ao fim.**
+> **⚠️ DOCUMENTO ARQUIVADO** - Algumas referências a scripts (`./scripts/deploy.sh`) estão desatualizadas.  
+> **Use este arquivo**: `QUICKSTART.md` na raiz do projeto para instruções atualizadas.
+
+> **Este é um documento histórico da implementação original.**
 
 ---
 

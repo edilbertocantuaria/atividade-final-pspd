@@ -8,6 +8,14 @@ RESULTS_DIR="$PROJECT_ROOT/test_results/scenario_2"
 echo "🔧 Setup Scenario 2: Warm Start"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
+# Verificar cluster Kubernetes
+source "$SCRIPT_DIR/../common/k8s_check.sh"
+if ! check_kubernetes_cluster; then
+    echo "❌ Falha na verificação do cluster Kubernetes"
+    exit 1
+fi
+echo ""
+
 # Limpar
 kubectl delete namespace pspd 2>/dev/null || true
 sleep 5
@@ -34,7 +42,7 @@ sleep 5
 # Testar com retry (até 10 tentativas)
 echo "🧪 Testando conectividade..."
 for i in {1..10}; do
-    if curl -s --max-time 2 http://localhost:8080/a/hello?name=test > /dev/null 2>&1; then
+    if curl -s --max-time 2 http://localhost:8080/api/content?type=all > /dev/null 2>&1; then
         echo "✅ Gateway OK (http://localhost:8080)"
         exit 0
     fi

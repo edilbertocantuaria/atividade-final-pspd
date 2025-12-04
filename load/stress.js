@@ -23,7 +23,7 @@ export default function () {
   const baseUrl = __ENV.BASE_URL || 'http://localhost:8080';
   
   http.batch([
-    ['GET', `${baseUrl}/a/hello?name=stress${__VU}`],
-    ['GET', `${baseUrl}/b/numbers?count=5`],
+    ['GET', `${baseUrl}/api/content?type=movies&limit=10`],
+    ['GET', `${baseUrl}/api/metadata/m${(__VU % 4) + 1}?userId=stress${__VU}`],
   ]);
 }

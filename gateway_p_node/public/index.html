@@ -1,33 +1,246 @@
 <!doctype html>
 <html>
-  <head><meta charset="utf-8"><title>PSPD gRPC Gateway</title></head>
-  <body style="font-family:system-ui;margin:2rem">
-    <h1>PSPD · HTTP → gRPC</h1>
-    <div style="border:1px solid #333;padding:1rem;border-radius:12px;margin-bottom:1rem">
-      <h2>Service A · unary</h2>
-      <input id="name" placeholder="Seu nome" />
-      <button onclick="hello()">Chamar /a/hello</button>
-      <pre id="outA"></pre>
+  <head>
+    <meta charset="utf-8">
+    <title>PSPD Streaming Platform</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        margin: 0;
+        padding: 2rem;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        color: #eee;
+      }
+      h1 {
+        text-align: center;
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
+      }
+      .subtitle {
+        text-align: center;
+        color: #888;
+        margin-bottom: 3rem;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      .section {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+        backdrop-filter: blur(10px);
+      }
+      h2 {
+        margin-top: 0;
+        color: #4a9eff;
+      }
+      .controls {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+      }
+      input, select, button {
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, 0.1);
+        color: #eee;
+        font-size: 1rem;
+      }
+      button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        transition: transform 0.2s;
+      }
+      button:hover {
+        transform: translateY(-2px);
+      }
+      button:active {
+        transform: translateY(0);
+      }
+      pre {
+        background: #000;
+        padding: 1rem;
+        border-radius: 8px;
+        overflow-x: auto;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+      }
+      .card {
+        background: rgba(255, 255, 255, 0.08);
+        padding: 1rem;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      .card h3 {
+        margin: 0 0 0.5rem 0;
+        color: #4a9eff;
+        font-size: 1.1rem;
+      }
+      .card p {
+        margin: 0.25rem 0;
+        color: #aaa;
+        font-size: 0.9rem;
+      }
+      .badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        background: rgba(74, 158, 255, 0.2);
+        border-radius: 4px;
+        font-size: 0.75rem;
+        margin-right: 0.25rem;
+        margin-top: 0.25rem;
+      }
+      .metadata-list {
+        list-style: none;
+        padding: 0;
+      }
+      .metadata-list li {
+        padding: 0.5rem;
+        background: rgba(255, 255, 255, 0.05);
+        margin-bottom: 0.5rem;
+        border-radius: 4px;
+      }
+      .score {
+        float: right;
+        color: #4a9eff;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🎬 PSPD Streaming Platform</h1>
+      <p class="subtitle">API de Streaming com gRPC · Service A (Catálogo) · Service B (Metadados)</p>
+      
+      <!-- Service A: Catálogo -->
+      <div class="section">
+        <h2>📺 Catálogo de Conteúdo (Service A - Unary gRPC)</h2>
+        <div class="controls">
+          <select id="contentType">
+            <option value="all">Todos</option>
+            <option value="movies">Filmes</option>
+            <option value="series">Séries</option>
+            <option value="live">Ao Vivo</option>
+          </select>
+          <input id="contentLimit" type="number" value="10" min="1" max="50" placeholder="Limite">
+          <input id="contentGenre" placeholder="Gênero (opcional)">
+          <button onclick="loadCatalog()">🔍 Buscar Catálogo</button>
+        </div>
+        <div id="catalogGrid" class="grid"></div>
+        <pre id="catalogRaw" style="display:none"></pre>
+      </div>
+
+      <!-- Service B: Metadados -->
+      <div class="section">
+        <h2>🎯 Metadados e Recomendações (Service B - Streaming gRPC)</h2>
+        <div class="controls">
+          <select id="metadataContentId">
+            <option value="m1">A Jornada Infinita (m1)</option>
+            <option value="m2">Segredos do Passado (m2)</option>
+            <option value="m3">Risadas na Cidade (m3)</option>
+            <option value="m4">O Último Guardião (m4)</option>
+            <option value="s1">Dimensões Paralelas (s1)</option>
+            <option value="s2">Cidade Sombria (s2)</option>
+          </select>
+          <input id="metadataUserId" placeholder="User ID" value="user123">
+          <button onclick="loadMetadata()">📊 Buscar Metadados</button>
+        </div>
+        <ul id="metadataList" class="metadata-list"></ul>
+        <pre id="metadataRaw" style="display:none"></pre>
+      </div>
+
+      <!-- API Combinada -->
+      <div class="section">
+        <h2>🚀 Browse (API Combinada: A + B)</h2>
+        <div class="controls">
+          <select id="browseType">
+            <option value="all">Todos</option>
+            <option value="movies">Filmes</option>
+            <option value="series">Séries</option>
+          </select>
+          <input id="browseLimit" type="number" value="5" min="1" max="20">
+          <button onclick="loadBrowse()">⚡ Carregar Browse</button>
+        </div>
+        <pre id="browseOutput"></pre>
+      </div>
     </div>
-    <div style="border:1px solid #333;padding:1rem;border-radius:12px">
-      <h2>Service B · server-stream</h2>
-      <input id="count" type="number" value="5" />
-      <input id="delay" type="number" value="0" />
-      <button onclick="nums()">Chamar /b/numbers</button>
-      <pre id="outB"></pre>
-    </div>
+
     <script>
-      async function hello() {
-        const name = document.getElementById('name').value || 'mundo';
-        const r = await fetch(`/a/hello?name=${encodeURIComponent(name)}`); 
-        document.getElementById('outA').textContent = JSON.stringify(await r.json(), null, 2);
+      async function loadCatalog() {
+        const type = document.getElementById('contentType').value;
+        const limit = document.getElementById('contentLimit').value;
+        const genre = document.getElementById('contentGenre').value;
+        
+        const url = `/api/content?type=${type}&limit=${limit}${genre ? '&genre=' + genre : ''}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        // Renderizar grid de cards
+        const grid = document.getElementById('catalogGrid');
+        grid.innerHTML = data.items.map(item => `
+          <div class="card">
+            <h3>${item.title}</h3>
+            <p><strong>${item.type === 'movie' ? '🎬 Filme' : item.type === 'series' ? '📺 Série' : '📡 Ao Vivo'}</strong></p>
+            <p>${item.description.substring(0, 80)}...</p>
+            <p>⭐ ${item.rating} | ${item.year}</p>
+            <div>
+              ${item.genres.map(g => `<span class="badge">${g}</span>`).join('')}
+            </div>
+          </div>
+        `).join('');
+        
+        // Mostrar JSON também
+        document.getElementById('catalogRaw').textContent = JSON.stringify(data, null, 2);
       }
-      async function nums() {
-        const count = document.getElementById('count').value || 5;
-        const delay_ms = document.getElementById('delay').value || 0;
-        const r = await fetch(`/b/numbers?count=${count}&delay_ms=${delay_ms}`);
-        document.getElementById('outB').textContent = JSON.stringify(await r.json(), null, 2);
+
+      async function loadMetadata() {
+        const contentId = document.getElementById('metadataContentId').value;
+        const userId = document.getElementById('metadataUserId').value;
+        
+        const url = `/api/metadata/${contentId}?userId=${userId}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        // Renderizar lista de metadados
+        const list = document.getElementById('metadataList');
+        list.innerHTML = data.metadata.map(item => `
+          <li>
+            <strong>${item.key}:</strong> ${item.value}
+            <span class="score">${(item.relevance_score * 100).toFixed(0)}%</span>
+          </li>
+        `).join('');
+        
+        // Mostrar JSON também
+        document.getElementById('metadataRaw').textContent = JSON.stringify(data, null, 2);
       }
+
+      async function loadBrowse() {
+        const type = document.getElementById('browseType').value;
+        const limit = document.getElementById('browseLimit').value;
+        
+        const url = `/api/browse?type=${type}&limit=${limit}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        document.getElementById('browseOutput').textContent = JSON.stringify(data, null, 2);
+      }
+
+      // Carregar catálogo inicial
+      window.addEventListener('load', () => loadCatalog());
     </script>
   </body>
 </html>
+

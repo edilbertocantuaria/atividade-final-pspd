@@ -40,7 +40,7 @@ METADATA_DB = {
     "s2": [("creator", "Vince Gilligan", 0.95), ("cast", "Bryan Cranston", 0.93),
            ("similar", "True Detective", 0.89), ("similar", "Mindhunter", 0.84)],
     "s3": [("creator", "Greg Garcia", 0.90), ("cast", "Amy Poehler", 0.87),
-           ("similar": "Modern Family", 0.88), ("similar", "Brooklyn Nine-Nine", 0.83)],
+           ("similar", "Modern Family", 0.88), ("similar", "Brooklyn Nine-Nine", 0.83)],
     "s4": [("creator", "David Chase", 0.97), ("cast", "James Gandolfini", 0.95),
            ("similar", "The Wire", 0.92), ("similar", "Breaking Bad", 0.90)],
 }

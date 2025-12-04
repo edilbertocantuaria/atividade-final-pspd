@@ -1,5 +1,8 @@
 # 🔄 Sistema de Checkpoints - Como Usar
 
+> **⚠️ DOCUMENTO ARQUIVADO** - Algumas referências a scripts (`./scripts/setup_multinode_cluster.sh`, `./scripts/deploy.sh`) podem estar desatualizadas.  
+> Para instruções atualizadas, consulte: `QUICKSTART.md` na raiz do projeto.
+
 ## 📍 O Problema Resolvido
 
 Antes: Se algo dava erro no meio da execução, você tinha que **recomeçar tudo do zero** (15-20 min).

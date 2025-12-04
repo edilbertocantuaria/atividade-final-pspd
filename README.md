@@ -90,20 +90,40 @@ Retorna metadados via Service B (gRPC streaming)
 
 ### Setup Inicial (uma vez)
 ```bash
-# Criar cluster (1 master + 2 workers)
-./scripts/setup_multinode_cluster.sh
+# 1. Criar cluster Kubernetes
+minikube start --nodes 3 --cpus 4 --memory 8192
+minikube addons enable metrics-server ingress
 
-# Deploy aplicação + monitoramento
+# 2. Build das imagens
+eval $(minikube docker-env)
+docker build -t a-py:latest ./services/a_py
+docker build -t b-py:latest ./services/b_py
+docker build -t p-node:latest ./gateway_p_node
+
+# 3. Deploy aplicação
 kubectl apply -f k8s/
-kubectl apply -f k8s/monitoring/
+kubectl apply -f k8s/monitoring/  # Opcional: apenas se tiver Prometheus instalado
 ```
 
 ### Executar Testes
+
+**Opção 1: Testes Rápidos (cenário único - ~20 min)**
 ```bash
-# Testes de carga (baseline, ramp, spike, soak)
+# Executar 4 testes k6 no cenário atual
 ./scripts/run_all_tests.sh all
 
-# Análise comparativa de 5 cenários (2-3 horas)
+# Ou testes individuais
+./scripts/run_all_tests.sh baseline
+./scripts/run_all_tests.sh spike
+./scripts/run_all_tests.sh monitor  # Monitor em tempo real
+```
+
+**Opção 2: Análise Comparativa Completa (5 cenários - 2-3h)**
+```bash
+# 1. Executar todos os 5 cenários (5 × 4 testes = 20 execuções)
+./test/run_all_scenarios.sh
+
+# 2. Gerar comparação entre cenários
 ./scripts/run_scenario_comparison.sh --all
 ```
 
@@ -315,8 +335,9 @@ kubectl logs -n pspd -l app=a
 kubectl port-forward -n pspd svc/p-svc 8080:80
 
 # Testar endpoints
-curl http://localhost:8080/a/hello?name=teste
-curl http://localhost:8080/b/numbers?count=5
+curl "http://localhost:8080/api/content?type=all&limit=10"
+curl "http://localhost:8080/api/metadata/m1?userId=teste"
+curl "http://localhost:8080/api/browse?type=series&limit=5"
 ```
 
 ### Métricas
