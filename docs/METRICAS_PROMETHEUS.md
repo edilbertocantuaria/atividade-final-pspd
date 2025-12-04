@@ -232,19 +232,7 @@ spec:
 
 ## Verificação de Métricas
 
-### Script Automatizado
-```bash
-./scripts/verify_metrics.sh
-```
-
-Este script:
-1. Verifica se pods estão rodando
-2. Testa endpoint `/metrics` de cada serviço
-3. Mostra amostra das métricas customizadas
-4. Lista ServiceMonitors configurados
-5. Sugere queries PromQL úteis
-
-### Verificação Manual
+### Verificação Manual via port-forward
 
 #### Teste local via port-forward
 ```bash
@@ -269,6 +257,30 @@ kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 909
 # Acessar: http://localhost:9090/targets
 # Procurar por: serviceMonitor/pspd/service-a-monitor/0
 ```
+
+---
+
+## 📊 Acessar Grafana
+
+### Port-Forward
+```bash
+kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80
+```
+Acesse: http://localhost:3000
+
+### Credenciais
+- **Usuário**: `admin`
+- **Senha**: Recuperar do secret:
+```bash
+kubectl get secret -n monitoring prometheus-grafana -o jsonpath="{.data.admin-password}" | base64 -d
+```
+
+### Importar Dashboard Customizado
+
+1. Acesse Grafana → **+** → **Import**
+2. Upload: `k8s/monitoring/grafana-dashboard.json`
+3. Selecione **prometheus** como data source
+4. Clique em **Import**
 
 ---
 
@@ -422,7 +434,7 @@ kubectl exec -n pspd <pod-name> -- netstat -tuln | grep 9101
 
 1. ✅ Métricas implementadas
 2. ✅ ServiceMonitors configurados
-3. ⏳ Executar `./scripts/verify_metrics.sh`
+3. ⏳ Verificar métricas via port-forward (comandos acima)
 4. ⏳ Criar dashboards Grafana customizados
 5. ⏳ Executar testes de carga e correlacionar métricas
 6. ⏳ Documentar insights obtidos das métricas

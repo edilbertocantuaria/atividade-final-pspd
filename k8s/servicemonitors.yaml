@@ -1,0 +1,51 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: service-a-monitor
+  namespace: pspd
+  labels:
+    app: a
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: a
+  endpoints:
+    - port: metrics
+      interval: 15s
+      path: /metrics
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: service-b-monitor
+  namespace: pspd
+  labels:
+    app: b
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: b
+  endpoints:
+    - port: metrics
+      interval: 15s
+      path: /metrics
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: gateway-p-monitor
+  namespace: pspd
+  labels:
+    app: p
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: p
+  endpoints:
+    - port: metrics
+      interval: 15s
+      path: /metrics

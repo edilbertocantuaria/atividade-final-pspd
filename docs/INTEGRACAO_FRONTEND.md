@@ -1,55 +1,38 @@
-# Integração Frontend Next.js com Backend gRPC
+# Integração Frontend com Backend gRPC
 
-Este documento explica como o frontend da plataforma de streaming se integra com os microsserviços gRPC via Gateway P.
+Frontend de demonstração da plataforma de streaming integrado com microsserviços gRPC.
 
----
-
-## 🌐 Arquitetura Completa
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    FRONTEND (Next.js)                       │
-│         https://streaming-app-design.vercel.app/            │
-│                                                             │
-│  Pages: /browse, /watch/[id], /profiles                    │
-│  Components: HeroSection, ContentRow, VideoPlayer          │
-└─────────────────────┬───────────────────────────────────────┘
-                      │ HTTP/REST
-                      ▼
-┌─────────────────────────────────────────────────────────────┐
-│              GATEWAY P (Node.js + Express)                  │
-│                   localhost:8080 / K8s                      │
-│                                                             │
-│  Endpoints:                                                 │
-│    GET /api/content?type=movies&limit=10                   │
-│    GET /api/metadata/:contentId                            │
-│    GET /api/browse?type=all                                │
-└─────────────────────┬───────────────┬───────────────────────┘
-                      │ gRPC          │ gRPC
-                      ▼               ▼
-        ┌─────────────────┐ ┌─────────────────┐
-        │   Service A     │ │   Service B     │
-        │   (Catálogo)    │ │  (Metadados)    │
-        │   Python        │ │   Python        │
-        └─────────────────┘ └─────────────────┘
-```
+**Deploy**: https://streaming-app-design.vercel.app/
 
 ---
 
-## 📡 API Endpoints do Gateway
+## 🌐 Arquitetura
 
-### 1. `/api/content` - Catálogo de Conteúdo
+```
+Frontend (Next.js)  →  Gateway P (HTTP/REST)  →  Services A/B (gRPC)
+   Vercel              localhost:8080/K8s         Python Streaming
+```
 
-**Service utilizado**: Service A (gRPC unário)
+### Fluxo de Dados
 
-**Parâmetros**:
-- `type`: `movies`, `series`, `live`, `all` (padrão: `all`)
-- `limit`: número de itens (padrão: `20`)
-- `genre`: filtro por gênero (opcional)
+1. **Usuário** acessa frontend Next.js
+2. **Frontend** faz requisições HTTP para Gateway P
+3. **Gateway P** converte HTTP → gRPC e chama Services A/B
+4. **Services** retornam dados via gRPC
+5. **Gateway** converte gRPC → JSON HTTP
+6. **Frontend** renderiza dados
 
-**Exemplo de requisição**:
+---
+
+## 📡 Endpoints da API
+
+### `/api/content` - Catálogo
 ```bash
-curl "http://localhost:8080/api/content?type=movies&limit=10&genre=Ação"
+# Listar todos os conteúdos
+curl "http://localhost:8080/api/content?type=all&limit=20"
+
+# Filtrar por tipo
+curl "http://localhost:8080/api/content?type=movies&limit=10"
 ```
 
 **Resposta**:
@@ -59,13 +42,9 @@ curl "http://localhost:8080/api/content?type=movies&limit=10&genre=Ação"
     {
       "id": "m1",
       "title": "A Jornada Infinita",
-      "description": "Uma aventura épica através das galáxias",
-      "thumbnail": "/api/thumbnails/m1.jpg",
       "type": "movie",
       "genres": ["Ficção Científica", "Aventura"],
-      "year": 2024,
-      "rating": 8.7,
-      "duration": "2h 15min"
+      "rating": 8.7
     }
   ],
   "total": 4,
@@ -73,32 +52,9 @@ curl "http://localhost:8080/api/content?type=movies&limit=10&genre=Ação"
 }
 ```
 
-**Uso no Frontend**:
-```typescript
-// lib/api.ts
-export async function getContent(type = 'all', limit = 20) {
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/content?type=${type}&limit=${limit}`
-  )
-  return res.json()
-}
-
-// app/browse/movies/page.tsx
-const { items } = await getContent('movies', 10)
-```
-
----
-
-### 2. `/api/metadata/:contentId` - Metadados e Recomendações
-
-**Service utilizado**: Service B (gRPC streaming)
-
-**Parâmetros**:
-- `contentId`: ID do conteúdo (path param)
-- `userId`: ID do usuário (query param, opcional)
-
-**Exemplo de requisição**:
+### `/api/metadata/:id` - Metadados
 ```bash
+# Buscar metadados de um conteúdo
 curl "http://localhost:8080/api/metadata/m1?userId=user123"
 ```
 
@@ -107,266 +63,50 @@ curl "http://localhost:8080/api/metadata/m1?userId=user123"
 {
   "contentId": "m1",
   "metadata": [
-    {
-      "key": "director",
-      "value": "James Cameron",
-      "relevanceScore": 0.95
-    },
-    {
-      "key": "cast",
-      "value": "Chris Evans, Zoe Saldana",
-      "relevanceScore": 0.90
-    },
-    {
-      "key": "similar",
-      "value": "Interestelar",
-      "relevanceScore": 0.85
-    }
+    {"key": "director", "value": "James Cameron", "relevanceScore": 0.95},
+    {"key": "similar", "value": "Interestelar", "relevanceScore": 0.85}
   ],
   "source": "ServiceB"
 }
 ```
 
-**Uso no Frontend**:
-```typescript
-// lib/api.ts
-export async function getMetadata(contentId: string, userId?: string) {
-  const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/api/metadata/${contentId}`)
-  if (userId) url.searchParams.set('userId', userId)
-  
-  const res = await fetch(url.toString())
-  return res.json()
-}
-
-// app/watch/[id]/page.tsx
-const { metadata } = await getMetadata(params.id, session?.userId)
-const recommendations = metadata.filter(m => m.key === 'similar')
-```
-
----
-
-### 3. `/api/browse` - Endpoint Combinado
-
-**Services utilizados**: Service A + Service B (orquestração)
-
-**Parâmetros**:
-- `type`: tipo de conteúdo (padrão: `all`)
-- `limit`: número de itens (padrão: `10`)
-
-**Fluxo**:
-1. Busca catálogo no Service A
-2. Se houver itens, busca metadados do primeiro item no Service B
-3. Retorna tudo combinado
-
-**Exemplo de requisição**:
+### `/api/browse` - Endpoint Combinado
 ```bash
+# Catálogo + metadados do primeiro item
 curl "http://localhost:8080/api/browse?type=series&limit=5"
-```
-
-**Resposta**:
-```json
-{
-  "catalog": [
-    {
-      "id": "s1",
-      "title": "Dimensões Paralelas",
-      "type": "series",
-      "rating": 9.1
-    }
-  ],
-  "total": 4,
-  "featuredMetadata": [
-    {
-      "key": "creator",
-      "value": "J.J. Abrams",
-      "relevanceScore": 0.96
-    }
-  ],
-  "processingTime": "45.23ms"
-}
-```
-
-**Uso no Frontend**:
-```typescript
-// app/browse/page.tsx
-const { catalog, featuredMetadata } = await fetch(
-  `${process.env.NEXT_PUBLIC_API_URL}/api/browse?type=all&limit=20`
-).then(r => r.json())
-
-// Renderiza hero com o primeiro item + metadados
-<HeroSection content={catalog[0]} metadata={featuredMetadata} />
-<ContentRow items={catalog.slice(1)} />
-```
-
----
-
-## 🔌 Configuração do Frontend
-
-### 1. Variáveis de Ambiente (`.env.local`)
-
-```bash
-# URL do Gateway P (desenvolvimento local)
-NEXT_PUBLIC_API_URL=http://localhost:8080
-
-# URL do Gateway P (produção Kubernetes)
-# NEXT_PUBLIC_API_URL=http://your-k8s-cluster.com
-```
-
-### 2. Cliente API Centralizado
-
-```typescript
-// lib/streaming-api.ts
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
-
-export class StreamingAPI {
-  static async getMovies(limit = 10) {
-    const res = await fetch(`${API_BASE}/api/content?type=movies&limit=${limit}`)
-    if (!res.ok) throw new Error('Failed to fetch movies')
-    return res.json()
-  }
-
-  static async getSeries(limit = 10) {
-    const res = await fetch(`${API_BASE}/api/content?type=series&limit=${limit}`)
-    if (!res.ok) throw new Error('Failed to fetch series')
-    return res.json()
-  }
-
-  static async getLiveChannels() {
-    const res = await fetch(`${API_BASE}/api/content?type=live&limit=20`)
-    if (!res.ok) throw new Error('Failed to fetch channels')
-    return res.json()
-  }
-
-  static async getContentMetadata(contentId: string, userId?: string) {
-    const url = new URL(`${API_BASE}/api/metadata/${contentId}`)
-    if (userId) url.searchParams.set('userId', userId)
-    
-    const res = await fetch(url.toString())
-    if (!res.ok) throw new Error('Failed to fetch metadata')
-    return res.json()
-  }
-
-  static async browse(type = 'all', limit = 20) {
-    const res = await fetch(`${API_BASE}/api/browse?type=${type}&limit=${limit}`)
-    if (!res.ok) throw new Error('Failed to browse')
-    return res.json()
-  }
-}
-```
-
-### 3. Exemplo de Uso em Componentes
-
-```typescript
-// app/browse/page.tsx
-import { StreamingAPI } from '@/lib/streaming-api'
-
-export default async function BrowsePage() {
-  const { catalog, featuredMetadata } = await StreamingAPI.browse('all', 20)
-  
-  const movies = catalog.filter(c => c.type === 'movie')
-  const series = catalog.filter(c => c.type === 'series')
-  const live = catalog.filter(c => c.type === 'live')
-
-  return (
-    <div>
-      <HeroSection content={catalog[0]} metadata={featuredMetadata} />
-      <ContentRow title="Filmes Populares" items={movies} />
-      <ContentRow title="Séries em Alta" items={series} />
-      <ContentRow title="Ao Vivo" items={live} />
-    </div>
-  )
-}
-```
-
----
-
-## 🚀 Deployment e Integração
-
-### Desenvolvimento Local
-
-1. **Iniciar backend**:
-```bash
-cd atividade-final-pspd
-kubectl apply -f k8s/
-kubectl port-forward -n pspd svc/p-svc 8080:80
-```
-
-2. **Iniciar frontend**:
-```bash
-cd streaming-app-design
-echo "NEXT_PUBLIC_API_URL=http://localhost:8080" > .env.local
-npm run dev
-```
-
-3. **Acessar**: http://localhost:3000
-
-### Produção Kubernetes
-
-1. **Backend**: Já deployado no cluster K8s
-2. **Frontend**: Deploy no Vercel com variável:
-   ```
-   NEXT_PUBLIC_API_URL=http://<k8s-ingress-url>
-   ```
-
-3. **CORS**: Já configurado no Gateway P (`cors()` middleware)
-
----
-
-## 📊 Métricas de Integração
-
-O Gateway P expõe métricas Prometheus sobre as chamadas da API:
-
-```promql
-# Taxa de requisições HTTP por endpoint
-rate(http_requests_total{app="p", route=~"/api/.*"}[1m])
-
-# Latência P95 das APIs
-histogram_quantile(0.95, 
-  rate(http_request_duration_seconds_bucket{app="p", route=~"/api/.*"}[1m])
-)
-
-# Taxa de chamadas gRPC originadas pelo Gateway
-rate(grpc_client_requests_total{app="p"}[1m])
 ```
 
 ---
 
 ## 🧪 Testando a Integração
 
-### 1. Teste Manual (curl)
-
+### 1. Port-forward local
 ```bash
-# Catálogo completo
+# Gateway P
+kubectl port-forward -n pspd svc/p-svc 8080:80
+
+# Testar endpoints
 curl http://localhost:8080/api/content?type=all
-
-# Apenas filmes
-curl http://localhost:8080/api/content?type=movies&limit=5
-
-# Metadados de um filme
 curl http://localhost:8080/api/metadata/m1
-
-# Browse combinado
-curl http://localhost:8080/api/browse?type=series
+curl http://localhost:8080/api/browse?type=movies
 ```
 
-### 2. Teste com k6 (já incluído nos scripts)
-
+### 2. Testes de carga (k6)
 ```bash
-# Os testes de carga já simulam navegação real
+# Testes já simulam navegação real do usuário
 ./scripts/run_all_tests.sh baseline
 
-# Verifica:
-# - GET /api/content?type=all&limit=20
+# Padrão de requisições:
+# - GET /api/content?type=all
 # - GET /api/content?type=movies&limit=10
 # - GET /api/metadata/m1
-# - GET /api/browse?type=series&limit=5
+# - GET /api/browse?type=series
 ```
 
-### 3. Verificar Métricas
-
+### 3. Verificar métricas
 ```bash
 # Métricas do Gateway
-curl http://localhost:8080/metrics | grep http_requests_total
+curl http://localhost:8080/metrics | grep http_requests
 
 # Dashboard Grafana
 kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80
@@ -375,45 +115,41 @@ kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80
 
 ---
 
-## 🔍 Troubleshooting
+## 🔧 Troubleshooting
 
-### Erro de CORS
-
-**Sintoma**: Frontend não consegue chamar API
-```
-Access to fetch at 'http://localhost:8080/api/content' from origin 
-'http://localhost:3000' has been blocked by CORS policy
+### Pods não estão rodando
+```bash
+kubectl get pods -n pspd
+kubectl logs -n pspd -l app=p
 ```
 
-**Solução**: Gateway P já tem `cors()` ativado. Verificar se middleware está antes das rotas.
+### Timeout nas requisições
+```bash
+# Verificar HPA
+kubectl get hpa -n pspd
 
-### Timeout nas Requisições
-
-**Sintoma**: Requisições demoram muito ou timeout
+# Escalar manualmente se necessário
+kubectl scale deployment p-deploy -n pspd --replicas=3
 ```
-Error: Failed to fetch - Request timeout
+
+### Dados não aparecem
+```bash
+# Testar Service A diretamente
+kubectl port-forward -n pspd svc/a-svc 50051:50051
+
+# Verificar logs
+kubectl logs -n pspd -l app=a
 ```
-
-**Solução**: 
-1. Verificar se pods estão rodando: `kubectl get pods -n pspd`
-2. Verificar HPA: `kubectl get hpa -n pspd`
-3. Aumentar réplicas manualmente: `kubectl scale deployment p -n pspd --replicas=3`
-
-### Dados Não Aparecem
-
-**Sintoma**: API retorna array vazio
-
-**Solução**:
-1. Testar Service A diretamente:
-   ```bash
-   kubectl exec -it <pod-p> -- curl localhost:50051/ServiceA/GetContent
-   ```
-2. Verificar logs: `kubectl logs -n pspd -l app=a`
 
 ---
 
-## 📚 Referências
+## 📚 Tecnologias
 
-- **Documentação gRPC**: https://grpc.io/docs/
-- **Next.js Data Fetching**: https://nextjs.org/docs/app/building-your-application/data-fetching
-- **Prometheus Client (Node.js)**: https://github.com/siimon/prom-client
+- **Frontend**: Next.js 14 (App Router), TypeScript, Tailwind CSS
+- **Gateway**: Node.js, Express, gRPC-js
+- **Services**: Python, gRPC, Prometheus Client
+- **Deploy**: Vercel (frontend), Kubernetes (backend)
+
+---
+
+**Nota**: O frontend é uma **demonstração visual** da API. O foco da atividade é a infraestrutura K8s, monitoramento e testes de carga.

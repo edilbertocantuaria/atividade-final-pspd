@@ -127,15 +127,20 @@ kubectl apply -f k8s/monitoring/  # Opcional: apenas se tiver Prometheus instala
 ./scripts/run_scenario_comparison.sh --all
 ```
 
-### Acessar Dashboards
-```bash
-# Grafana (admin/admin)
-kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80
-# → http://localhost:3000
+### Visualizar Métricas e Dashboards
 
+📊 **[Guia Completo: VISUALIZAR_METRICAS.md](./VISUALIZAR_METRICAS.md)**
+
+**Acesso rápido**:
+```bash
 # Prometheus
 kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090
 # → http://localhost:9090
+
+# Grafana
+kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80
+# → http://localhost:3000
+# User: admin | Password: (ver VISUALIZAR_METRICAS.md)
 ```
 
 ---
@@ -305,9 +310,9 @@ histogram_quantile(0.95, rate(grpc_server_request_duration_seconds_bucket{app="a
 │   └── soak.js
 │
 └── scripts/                      # Automação
-    ├── setup_multinode_cluster.sh
     ├── run_all_tests.sh
-    └── run_scenario_comparison.sh
+    ├── run_scenario_comparison.sh
+    └── analyze_results.py
 ```
 
 ---

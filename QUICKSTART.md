@@ -145,6 +145,35 @@ pkill -f "port-forward.*monitoring"
 
 ---
 
+## 📊 Visualizar Métricas e Dashboards
+
+### Guia Completo Passo a Passo
+
+📖 **[VISUALIZAR_METRICAS.md](./VISUALIZAR_METRICAS.md)** - Guia detalhado com screenshots e troubleshooting
+
+### Acesso Rápido
+
+**Prometheus** (métricas brutas):
+```bash
+kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090
+# → http://localhost:9090
+```
+
+**Grafana** (dashboards visuais):
+```bash
+# Port-forward
+kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80
+# → http://localhost:3000
+
+# Recuperar senha
+kubectl get secret -n monitoring prometheus-grafana -o jsonpath="{.data.admin-password}" | base64 -d
+# User: admin
+```
+
+**Dashboard customizado**: Importar `k8s/monitoring/grafana-dashboard.json`
+
+---
+
 ## 📈 Queries Prometheus Essenciais
 
 Copie e cole no Prometheus (aba Graph):

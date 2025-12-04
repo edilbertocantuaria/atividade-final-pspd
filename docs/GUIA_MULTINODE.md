@@ -61,11 +61,14 @@ docker build -t a-py:latest ./services/a_py
 docker build -t b-py:latest ./services/b_py
 docker build -t p-node:latest ./gateway_p_node
 
-# Deploy completo
-./scripts/deploy.sh setup
+# Deploy dos recursos Kubernetes
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/a.yaml
+kubectl apply -f k8s/b.yaml
+kubectl apply -f k8s/p.yaml
 
-# Configurar ServiceMonitors para Prometheus
-./scripts/deploy.sh monitoring
+# Configurar ServiceMonitors para Prometheus (se instalou Prometheus)
+kubectl apply -f k8s/servicemonitors.yaml
 ```
 
 ### Passo 3: Acessar Interfaces de Monitoramento
@@ -92,16 +95,19 @@ kubectl get svc -n pspd p-svc
 
 ```bash
 # Terminal 1: Grafana
-./scripts/deploy.sh grafana
+kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80
 # Acesse: http://localhost:3000
-# User: admin | Password: admin
+# User: admin | Password: (recuperar do secret)
+
+# Recuperar senha do Grafana:
+kubectl get secret -n monitoring prometheus-grafana -o jsonpath="{.data.admin-password}" | base64 -d
 
 # Terminal 2: Prometheus
-./scripts/deploy.sh prometheus
+kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090
 # Acesse: http://localhost:9090
 
 # Terminal 3: Gateway P
-./scripts/deploy.sh port-forward
+kubectl port-forward -n pspd svc/p-svc 8080:80
 # Acesse: http://localhost:8080
 ```
 
@@ -128,7 +134,7 @@ O dashboard inclui:
 ./scripts/run_all_tests.sh monitor
 
 # Terminal 2: Port-forward para aplicação
-./scripts/deploy.sh port-forward
+kubectl port-forward -n pspd svc/p-svc 8080:80
 
 # Terminal 3: Executar testes
 BASE_URL=http://localhost:8080 ./scripts/run_all_tests.sh all
@@ -212,8 +218,8 @@ kubectl get servicemonitor -n pspd
 ### Cluster não inicia
 ```bash
 # Aumentar recursos
-minikube delete -p pspd-cluster
-minikube start -p pspd-cluster --nodes 3 --cpus 4 --memory 8192
+minikube delete
+minikube start --nodes 3 --cpus 4 --memory 8192
 ```
 
 ### Prometheus não coleta métricas
@@ -222,10 +228,10 @@ minikube start -p pspd-cluster --nodes 3 --cpus 4 --memory 8192
 kubectl get servicemonitor -n pspd
 
 # Recriar ServiceMonitors
-./scripts/deploy.sh monitoring
+kubectl apply -f k8s/servicemonitors.yaml
 
 # Verificar logs do Prometheus
-kubectl logs -n monitoring prometheus-kube-prometheus-prometheus-0
+kubectl logs -n monitoring prometheus-prometheus-kube-prometheus-prometheus-0 -c prometheus
 ```
 
 ### Grafana não abre
@@ -281,10 +287,10 @@ kubectl top nodes
 
 ```bash
 # Parar cluster (preserva dados)
-minikube stop -p pspd-cluster
+minikube stop
 
 # Deletar cluster completamente
-minikube delete -p pspd-cluster
+minikube delete
 
 # Limpar apenas namespace pspd
 kubectl delete namespace pspd
@@ -305,7 +311,7 @@ kubectl delete namespace pspd
 ### ✅ Requisito 3: Interface Web de Monitoramento
 - **Requisito**: "Interface web de monitoramento do cluster"
 - **Implementado**: Grafana com dashboard customizado
-- **Verificação**: Acesse http://localhost:3000 após `./scripts/deploy.sh grafana`
+- **Verificação**: Acesse http://localhost:3000 após port-forward: `kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80`
 
 ### ✅ Requisito 4: ServiceMonitors
 - **Implementado**: 3 ServiceMonitors (gateway-p, service-a, service-b)
