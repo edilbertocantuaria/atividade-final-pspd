@@ -665,13 +665,13 @@ kubectl get servicemonitor -n pspd
 
 ```promql
 # Taxa de requisições por segundo (total)
-rate(http_requests_total{app="p"}[1m])
+rate(http_requests_total{container="p"}[1m])
 
 # Taxa por endpoint
-rate(http_requests_total{app="p", route="/api/content"}[1m])
+rate(http_requests_total{container="p", route="/api/content"}[1m])
 
 # Taxa por código de status
-sum by (status_code) (rate(http_requests_total{app="p"}[1m]))
+sum by (status_code) (rate(http_requests_total{container="p"}[1m]))
 ```
 
 #### Latência
@@ -679,19 +679,19 @@ sum by (status_code) (rate(http_requests_total{app="p"}[1m]))
 ```promql
 # Latência P50 do Gateway P
 histogram_quantile(0.50, 
-  rate(http_request_duration_seconds_bucket{app="p"}[1m])
+  rate(http_request_duration_seconds_bucket{container="p"}[1m])
 )
 
 # Latência P95 por endpoint
 histogram_quantile(0.95, 
   sum by (route, le) (
-    rate(http_request_duration_seconds_bucket{app="p"}[1m])
+    rate(http_request_duration_seconds_bucket{container="p"}[1m])
   )
 )
 
 # Latência P99
 histogram_quantile(0.99, 
-  rate(http_request_duration_seconds_bucket{app="p"}[1m])
+  rate(http_request_duration_seconds_bucket{container="p"}[1m])
 )
 ```
 
@@ -699,26 +699,26 @@ histogram_quantile(0.99,
 
 ```promql
 # Taxa de erro HTTP (5xx)
-sum(rate(http_requests_total{app="p", status_code=~"5.."}[1m])) / 
-sum(rate(http_requests_total{app="p"}[1m]))
+sum(rate(http_requests_total{container="p", status_code=~"5.."}[1m])) / 
+sum(rate(http_requests_total{container="p"}[1m]))
 
 # Erros gRPC do Service A
-rate(grpc_server_requests_total{app="a", status="error"}[1m])
+rate(grpc_server_requests_total{container="a", status="error"}[1m])
 ```
 
 #### Chamadas gRPC
 
 ```promql
 # Taxa de chamadas P→A
-rate(grpc_client_requests_total{app="p", service="ServiceA"}[1m])
+rate(grpc_client_requests_total{container="p", service="ServiceA"}[1m])
 
 # Taxa de chamadas P→B
-rate(grpc_client_requests_total{app="p", service="ServiceB"}[1m])
+rate(grpc_client_requests_total{container="p", service="ServiceB"}[1m])
 
 # Latência gRPC P→A
 histogram_quantile(0.95,
   rate(grpc_client_request_duration_seconds_bucket{
-    app="p", service="ServiceA"
+    container="p", service="ServiceA"
   }[1m])
 )
 ```
@@ -728,11 +728,11 @@ histogram_quantile(0.95,
 ```promql
 # Distribuição de tipos de conteúdo retornados
 sum by (content_type) (
-  rate(content_items_returned_total{app="a"}[5m])
+  rate(content_items_returned_total{container="a"}[5m])
 )
 
 # Total de itens transmitidos via stream
-rate(grpc_server_stream_items_total{app="b"}[1m])
+rate(grpc_server_stream_items_total{container="b"}[1m])
 ```
 
 #### Autoscaling (HPA)

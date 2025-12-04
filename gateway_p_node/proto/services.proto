@@ -1,17 +1,51 @@
+// Contrato de comunicação gRPC para aplicação de streaming
+// Service A: Catálogo de conteúdo (filmes, séries, canais ao vivo)
+// Service B: Metadados e recomendações
+
 syntax = "proto3";
 
 package pspd;
 
-message HelloRequest { string name = 1; }
-message HelloReply { string message = 1; }
-
-service ServiceA {
-  rpc SayHello(HelloRequest) returns (HelloReply);
+// Service A: Catálogo de conteúdo
+message ContentRequest {
+  string type = 1; // "movies", "series", "live", "all"
+  int32 limit = 2;
+  string genre = 3;
 }
 
-message StreamRequest { int32 count = 1; int32 delay_ms = 2; }
-message NumberReply { int32 value = 1; }
+message ContentItem {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  string thumbnail = 4;
+  string type = 5;
+  repeated string genres = 6;
+  int32 year = 7;
+  float rating = 8;
+  string duration = 9;
+}
+
+message ContentResponse {
+  repeated ContentItem items = 1;
+  int32 total = 2;
+}
+
+service ServiceA {
+  rpc GetContent(ContentRequest) returns (ContentResponse);
+}
+
+// Service B: Metadados e recomendações (streaming)
+message MetadataRequest {
+  string content_id = 1;
+  string user_id = 2;
+}
+
+message MetadataItem {
+  string key = 1;
+  string value = 2;
+  float relevance_score = 3;
+}
 
 service ServiceB {
-  rpc StreamNumbers(StreamRequest) returns (stream NumberReply);
+  rpc StreamMetadata(MetadataRequest) returns (stream MetadataItem);
 }

@@ -180,19 +180,19 @@ Copie e cole no Prometheus (aba Graph):
 
 ```promql
 # Taxa de requisições HTTP (req/s)
-rate(http_requests_total{app="p"}[1m])
+rate(http_requests_total{container="p"}[1m])
 
 # Latência P95 do Gateway P
-histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{app="p"}[1m]))
+histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{container="p"}[1m]))
 
 # Latência P95 do Service A
-histogram_quantile(0.95, rate(grpc_server_request_duration_seconds_bucket{app="a"}[1m]))
+histogram_quantile(0.95, rate(grpc_server_request_duration_seconds_bucket{container="a"}[1m]))
 
 # Taxa de erros
-rate(http_requests_total{app="p",status_code=~"5.."}[1m])
+rate(http_requests_total{container="p",status_code=~"5.."}[1m])
 
 # Chamadas gRPC por segundo
-rate(grpc_client_requests_total{app="p"}[1m])
+rate(grpc_client_requests_total{container="p"}[1m])
 ```
 
 ---

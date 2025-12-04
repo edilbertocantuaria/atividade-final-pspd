@@ -143,6 +143,29 @@ kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80
 # User: admin | Password: (ver VISUALIZAR_METRICAS.md)
 ```
 
+### Integrar Frontend com Backend e Métricas
+
+🌐 **[Guia de Integração: INTEGRACAO_FRONTEND_REAL.md](./docs/INTEGRACAO_FRONTEND_REAL.md)**
+
+**Opções de integração**:
+1. **Frontend Vercel + Backend Kubernetes**: Expor backend com Ngrok
+2. **Frontend Local + Backend Local**: Rodar Next.js localmente
+3. **API Routes (Proxy)**: Next.js faz proxy para backend
+
+**Fluxo completo**:
+```bash
+# Expor backend
+kubectl port-forward -n pspd svc/p-svc 8080:80
+
+# Usar Ngrok para URL pública
+ngrok http 8080
+# → Configure NEXT_PUBLIC_API_URL na Vercel com URL do Ngrok
+
+# Acesse frontend e veja métricas em tempo real
+# Frontend: https://streaming-app-design.vercel.app
+# Prometheus: http://localhost:9090
+```
+
 ---
 
 ## 📊 Arquitetura
@@ -265,19 +288,19 @@ scenario-comparison/
 ### Queries PromQL Úteis
 ```promql
 # Taxa de requisições HTTP
-rate(http_requests_total{app="p"}[1m])
+rate(http_requests_total{container="p"}[1m])
 
 # Latência P95 do Gateway
-histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{app="p"}[1m]))
+histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{container="p"}[1m]))
 
 # Taxa de erros
-rate(http_requests_total{app="p",status_code=~"5.."}[1m])
+rate(http_requests_total{container="p",status_code=~"5.."}[1m])
 
 # Chamadas gRPC do Gateway
-rate(grpc_client_requests_total{app="p"}[1m])
+rate(grpc_client_requests_total{container="p"}[1m])
 
 # Latência do Service A
-histogram_quantile(0.95, rate(grpc_server_request_duration_seconds_bucket{app="a"}[1m]))
+histogram_quantile(0.95, rate(grpc_server_request_duration_seconds_bucket{container="a"}[1m]))
 ```
 
 ---

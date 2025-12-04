@@ -34,19 +34,19 @@ Todos os três serviços (A, B e P) foram instrumentados com métricas customiza
 
 ```promql
 # Taxa de requisições por segundo
-rate(grpc_server_requests_total{app="a"}[1m])
+rate(grpc_server_requests_total{container="a"}[1m])
 
 # Taxa de erros
-rate(grpc_server_requests_total{app="a",status="error"}[1m])
+rate(grpc_server_requests_total{container="a",status="error"}[1m])
 
 # Latência P50
-histogram_quantile(0.50, rate(grpc_server_request_duration_seconds_bucket{app="a"}[1m]))
+histogram_quantile(0.50, rate(grpc_server_request_duration_seconds_bucket{container="a"}[1m]))
 
 # Latência P95
-histogram_quantile(0.95, rate(grpc_server_request_duration_seconds_bucket{app="a"}[1m]))
+histogram_quantile(0.95, rate(grpc_server_request_duration_seconds_bucket{container="a"}[1m]))
 
 # Latência P99
-histogram_quantile(0.99, rate(grpc_server_request_duration_seconds_bucket{app="a"}[1m]))
+histogram_quantile(0.99, rate(grpc_server_request_duration_seconds_bucket{container="a"}[1m]))
 ```
 
 ---
@@ -83,18 +83,18 @@ histogram_quantile(0.99, rate(grpc_server_request_duration_seconds_bucket{app="a
 
 ```promql
 # Taxa de requisições streaming por segundo
-rate(grpc_server_requests_total{app="b",method="StreamMetadata"}[1m])
+rate(grpc_server_requests_total{container="b",method="StreamMetadata"}[1m])
 
 # Items streamed por segundo
-rate(grpc_server_stream_items_total{app="b"}[1m])
+rate(grpc_server_stream_items_total{container="b"}[1m])
 
 # Latência média do streaming
-rate(grpc_server_request_duration_seconds_sum{app="b"}[1m]) 
+rate(grpc_server_request_duration_seconds_sum{container="b"}[1m]) 
 / 
-rate(grpc_server_request_duration_seconds_count{app="b"}[1m])
+rate(grpc_server_request_duration_seconds_count{container="b"}[1m])
 
 # Latência P95 do streaming
-histogram_quantile(0.95, rate(grpc_server_request_duration_seconds_bucket{app="b"}[1m]))
+histogram_quantile(0.95, rate(grpc_server_request_duration_seconds_bucket{container="b"}[1m]))
 ```
 
 ---
@@ -152,25 +152,25 @@ O gateway também expõe métricas padrão do processo Node.js:
 
 ```promql
 # Taxa de requisições HTTP por segundo
-rate(http_requests_total{app="p"}[1m])
+rate(http_requests_total{container="p"}[1m])
 
 # Taxa de erros HTTP (5xx)
-rate(http_requests_total{app="p",status_code=~"5.."}[1m])
+rate(http_requests_total{container="p",status_code=~"5.."}[1m])
 
 # Latência P95 HTTP
-histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{app="p"}[1m]))
+histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{container="p"}[1m]))
 
 # Taxa de chamadas gRPC para serviço A
-rate(grpc_client_requests_total{app="p",service="ServiceA"}[1m])
+rate(grpc_client_requests_total{container="p",service="ServiceA"}[1m])
 
 # Latência P95 das chamadas gRPC
-histogram_quantile(0.95, rate(grpc_client_request_duration_seconds_bucket{app="p"}[1m]))
+histogram_quantile(0.95, rate(grpc_client_request_duration_seconds_bucket{container="p"}[1m]))
 
 # Erros gRPC por serviço
-rate(grpc_client_requests_total{app="p",status="error"}[1m])
+rate(grpc_client_requests_total{container="p",status="error"}[1m])
 
 # Uso de memória do processo Node.js
-process_resident_memory_bytes{app="p"}
+process_resident_memory_bytes{container="p"}
 ```
 
 ---
@@ -291,40 +291,40 @@ kubectl get secret -n monitoring prometheus-grafana -o jsonpath="{.data.admin-pa
 #### Painel 1: Taxa de Requisições
 ```promql
 # HTTP (Gateway P)
-sum(rate(http_requests_total{app="p"}[1m])) by (route)
+sum(rate(http_requests_total{container="p"}[1m])) by (route)
 
 # gRPC Serviço A
-sum(rate(grpc_server_requests_total{app="a"}[1m])) by (method)
+sum(rate(grpc_server_requests_total{container="a"}[1m])) by (method)
 
 # gRPC Serviço B
-sum(rate(grpc_server_requests_total{app="b"}[1m])) by (method)
+sum(rate(grpc_server_requests_total{container="b"}[1m])) by (method)
 ```
 
 #### Painel 2: Latência P95
 ```promql
 # Gateway P (HTTP)
 histogram_quantile(0.95, 
-  sum(rate(http_request_duration_seconds_bucket{app="p"}[1m])) by (le, route)
+  sum(rate(http_request_duration_seconds_bucket{container="p"}[1m])) by (le, route)
 )
 
 # Serviço A
 histogram_quantile(0.95, 
-  sum(rate(grpc_server_request_duration_seconds_bucket{app="a"}[1m])) by (le)
+  sum(rate(grpc_server_request_duration_seconds_bucket{container="a"}[1m])) by (le)
 )
 
 # Serviço B
 histogram_quantile(0.95, 
-  sum(rate(grpc_server_request_duration_seconds_bucket{app="b"}[1m])) by (le)
+  sum(rate(grpc_server_request_duration_seconds_bucket{container="b"}[1m])) by (le)
 )
 ```
 
 #### Painel 3: Taxa de Erros
 ```promql
 # HTTP 5xx
-sum(rate(http_requests_total{app="p",status_code=~"5.."}[1m]))
+sum(rate(http_requests_total{container="p",status_code=~"5.."}[1m]))
 
 # gRPC Errors (Gateway → A/B)
-sum(rate(grpc_client_requests_total{app="p",status="error"}[1m])) by (service)
+sum(rate(grpc_client_requests_total{container="p",status="error"}[1m])) by (service)
 
 # gRPC Errors (Serviços A e B)
 sum(rate(grpc_server_requests_total{status="error"}[1m])) by (app)
@@ -332,16 +332,16 @@ sum(rate(grpc_server_requests_total{status="error"}[1m])) by (app)
 
 #### Painel 4: Throughput gRPC Client (Gateway P)
 ```promql
-sum(rate(grpc_client_requests_total{app="p",status="success"}[1m])) by (service, method)
+sum(rate(grpc_client_requests_total{container="p",status="success"}[1m])) by (service, method)
 ```
 
 #### Painel 5: Streaming (Serviço B)
 ```promql
 # Items por segundo
-rate(grpc_server_stream_items_total{app="b"}[1m])
+rate(grpc_server_stream_items_total{container="b"}[1m])
 
 # Streams ativos
-grpc_server_requests_total{app="b",method="StreamMetadata"} - grpc_server_requests_total{app="b",method="StreamMetadata"} offset 1m
+grpc_server_requests_total{container="b",method="StreamMetadata"} - grpc_server_requests_total{container="b",method="StreamMetadata"} offset 1m
 ```
 
 ---
