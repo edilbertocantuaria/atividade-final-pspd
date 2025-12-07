@@ -1,0 +1,717 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": "Prometheus",
+      "description": "Informações sobre o cenário selecionado",
+      "gridPos": {"h": 3, "w": 24, "x": 0, "y": 0},
+      "id": 100,
+      "options": {
+        "content": "# 🎯 Cenário Selecionado: $scenario\n\n**Cenário 1 - Base**: 1 réplica inicial, HPA 1-10, CPU 100m  \n**Cenário 2 - Réplicas**: 2 réplicas iniciais (warm start), HPA 2-10  \n**Cenário 3 - Distribuição**: 3 réplicas, anti-affinity, HPA 3-12  \n**Cenário 4 - Recursos**: 1 réplica, HPA 1-15, **CPU 50m** (limitado)  \n**Cenário 5 - Sem HPA**: 5 réplicas fixas, sem autoscaling",
+        "mode": "markdown"
+      },
+      "pluginVersion": "8.0.0",
+      "title": "ℹ️ Descrição dos Cenários",
+      "type": "text"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "HPA réplicas (min/atual/max) - Comparação de cenários",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "axisLabel": "Réplicas",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "spanNulls": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 5},
+              {"color": "red", "value": 10}
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 3},
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": ["min", "mean", "max", "lastNotNull"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {"mode": "multi"}
+      },
+      "targets": [
+        {
+          "expr": "kube_horizontalpodautoscaler_status_current_replicas{namespace=\"pspd\",horizontalpodautoscaler=~\".*$scenario.*\"}",
+          "legendFormat": "{{horizontalpodautoscaler}} - Atual",
+          "refId": "A"
+        },
+        {
+          "expr": "kube_horizontalpodautoscaler_spec_min_replicas{namespace=\"pspd\",horizontalpodautoscaler=~\".*$scenario.*\"}",
+          "legendFormat": "{{horizontalpodautoscaler}} - Min",
+          "refId": "B"
+        },
+        {
+          "expr": "kube_horizontalpodautoscaler_spec_max_replicas{namespace=\"pspd\",horizontalpodautoscaler=~\".*$scenario.*\"}",
+          "legendFormat": "{{horizontalpodautoscaler}} - Max",
+          "refId": "C"
+        }
+      ],
+      "title": "📊 HPA - Réplicas (Min/Atual/Max)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Throughput total do Gateway P",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "axisLabel": "req/s",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "mappings": [],
+          "unit": "reqps"
+        }
+      },
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 3},
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max", "lastNotNull"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {"mode": "multi"}
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{container=\"p\",namespace=\"pspd\"}[30s]))",
+          "legendFormat": "Total Throughput",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (route) (rate(http_requests_total{container=\"p\",namespace=\"pspd\"}[30s]))",
+          "legendFormat": "{{route}}",
+          "refId": "B"
+        }
+      ],
+      "title": "🚀 Throughput - Requisições/s",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Latência P50, P95, P99 do Gateway P",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "axisLabel": "Latência",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 0.1},
+              {"color": "red", "value": 0.5}
+            ]
+          },
+          "unit": "s"
+        }
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max", "lastNotNull"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {"mode": "multi"}
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(http_request_duration_seconds_bucket{container=\"p\",namespace=\"pspd\"}[1m])))",
+          "legendFormat": "P50 (mediana)",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{container=\"p\",namespace=\"pspd\"}[1m])))",
+          "legendFormat": "P95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_request_duration_seconds_bucket{container=\"p\",namespace=\"pspd\"}[1m])))",
+          "legendFormat": "P99",
+          "refId": "C"
+        }
+      ],
+      "title": "⏱️ Latência HTTP (P50, P95, P99)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Taxa de sucesso vs erro",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "axisLabel": "%",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 95},
+              {"color": "green", "value": 99}
+            ]
+          },
+          "unit": "percent"
+        }
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "lastNotNull"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {"mode": "multi"}
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{container=\"p\",namespace=\"pspd\",status_code=\"200\"}[1m])) / sum(rate(http_requests_total{container=\"p\",namespace=\"pspd\"}[1m])) * 100",
+          "legendFormat": "Taxa de Sucesso (2xx)",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(http_requests_total{container=\"p\",namespace=\"pspd\",status_code=~\"5..\"}[1m])) / sum(rate(http_requests_total{container=\"p\",namespace=\"pspd\"}[1m])) * 100",
+          "legendFormat": "Taxa de Erro (5xx)",
+          "refId": "B"
+        }
+      ],
+      "title": "✅ Taxa de Sucesso / Erro",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "CPU usage do Gateway P vs HPA target",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "axisLabel": "CPU %",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 70},
+              {"color": "red", "value": 90}
+            ]
+          },
+          "unit": "percent"
+        }
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max", "lastNotNull"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {"mode": "multi"}
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"pspd\",pod=~\"p-deploy.*\"}[1m])) / sum(kube_pod_container_resource_requests{namespace=\"pspd\",pod=~\"p-deploy.*\",resource=\"cpu\"}) * 100",
+          "legendFormat": "CPU % (vs request)",
+          "refId": "A"
+        },
+        {
+          "expr": "avg(kube_horizontalpodautoscaler_spec_target_metric{namespace=\"pspd\",horizontalpodautoscaler=~\"p-hpa.*\",metric_name=\"cpu\"})",
+          "legendFormat": "HPA Target",
+          "refId": "B"
+        }
+      ],
+      "title": "🔥 CPU Usage - Gateway P",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Memória dos pods do Gateway P",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "axisLabel": "Memory",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 134217728},
+              {"color": "red", "value": 268435456}
+            ]
+          },
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max", "lastNotNull"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {"mode": "multi"}
+      },
+      "targets": [
+        {
+          "expr": "sum(container_memory_working_set_bytes{namespace=\"pspd\",pod=~\"p-deploy.*\",container!=\"\"}) by (pod)",
+          "legendFormat": "{{pod}}",
+          "refId": "A"
+        }
+      ],
+      "title": "💾 Memory Usage - Gateway P",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Comparação de métricas entre cenários (últimos 5min)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "custom": {
+            "align": "auto",
+            "displayMode": "auto"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null}
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "Latência P95 (s)"},
+            "properties": [
+              {
+                "id": "custom.displayMode",
+                "value": "color-background"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {"color": "green", "value": null},
+                    {"color": "yellow", "value": 0.1},
+                    {"color": "red", "value": 0.5}
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "Taxa Sucesso (%)"},
+            "properties": [
+              {
+                "id": "custom.displayMode",
+                "value": "color-background"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {"color": "red", "value": null},
+                    {"color": "yellow", "value": 95},
+                    {"color": "green", "value": 99}
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 28},
+      "id": 7,
+      "options": {
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "avg_over_time(sum(rate(http_requests_total{container=\"p\",namespace=\"pspd\"}[1m]))[5m:30s])",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "Throughput Médio (req/s)",
+          "refId": "A"
+        },
+        {
+          "expr": "avg_over_time(histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{container=\"p\",namespace=\"pspd\"}[1m])))[5m:30s])",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "Latência P95 (s)",
+          "refId": "B"
+        },
+        {
+          "expr": "avg_over_time((sum(rate(http_requests_total{container=\"p\",namespace=\"pspd\",status_code=\"200\"}[1m])) / sum(rate(http_requests_total{container=\"p\",namespace=\"pspd\"}[1m])) * 100)[5m:30s])",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "Taxa Sucesso (%)",
+          "refId": "C"
+        },
+        {
+          "expr": "avg_over_time(kube_horizontalpodautoscaler_status_current_replicas{namespace=\"pspd\",horizontalpodautoscaler=\"p-hpa\"}[5m])",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "Réplicas Médias",
+          "refId": "D"
+        },
+        {
+          "expr": "max_over_time(kube_horizontalpodautoscaler_status_current_replicas{namespace=\"pspd\",horizontalpodautoscaler=\"p-hpa\"}[5m])",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "Réplicas Máximas",
+          "refId": "E"
+        }
+      ],
+      "title": "📋 Resumo de Métricas (Últimos 5min)",
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {},
+            "renameByName": {}
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Variação de réplicas (scaling range)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 3},
+              {"color": "red", "value": 5}
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 36},
+      "id": 8,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "max_over_time(kube_horizontalpodautoscaler_status_current_replicas{namespace=\"pspd\",horizontalpodautoscaler=\"p-hpa\"}[5m]) - min_over_time(kube_horizontalpodautoscaler_status_current_replicas{namespace=\"pspd\",horizontalpodautoscaler=\"p-hpa\"}[5m])",
+          "legendFormat": "Δ Réplicas",
+          "refId": "A"
+        }
+      ],
+      "title": "📈 Variação de Réplicas (5min)",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Total de requisições processadas",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "blue", "value": null}
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 36},
+      "id": 9,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(http_requests_total{container=\"p\",namespace=\"pspd\"}[5m]))",
+          "legendFormat": "Total Requests",
+          "refId": "A"
+        }
+      ],
+      "title": "📦 Total Requisições (5min)",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Latência P95 atual",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 0.1},
+              {"color": "red", "value": 0.5}
+            ]
+          },
+          "unit": "s"
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 36},
+      "id": 10,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{container=\"p\",namespace=\"pspd\"}[1m])))",
+          "legendFormat": "P95",
+          "refId": "A"
+        }
+      ],
+      "title": "⚡ Latência P95 Atual",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Taxa de sucesso atual",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 95},
+              {"color": "green", "value": 99}
+            ]
+          },
+          "unit": "percent"
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 36},
+      "id": 11,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{container=\"p\",namespace=\"pspd\",status_code=\"200\"}[1m])) / sum(rate(http_requests_total{container=\"p\",namespace=\"pspd\"}[1m])) * 100",
+          "legendFormat": "Success Rate",
+          "refId": "A"
+        }
+      ],
+      "title": "✅ Taxa de Sucesso Atual",
+      "type": "stat"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 27,
+  "style": "dark",
+  "tags": ["pspd", "cenarios", "comparacao", "hpa"],
+  "templating": {
+    "list": [
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "Cenário 1 - Base",
+          "value": "1"
+        },
+        "description": "Selecione o cenário para visualizar",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Cenário",
+        "multi": false,
+        "name": "scenario",
+        "options": [
+          {
+            "selected": true,
+            "text": "Cenário 1 - Base",
+            "value": "1"
+          },
+          {
+            "selected": false,
+            "text": "Cenário 2 - Réplicas",
+            "value": "2"
+          },
+          {
+            "selected": false,
+            "text": "Cenário 3 - Distribuição",
+            "value": "3"
+          },
+          {
+            "selected": false,
+            "text": "Cenário 4 - Recursos",
+            "value": "4"
+          },
+          {
+            "selected": false,
+            "text": "Cenário 5 - Sem HPA",
+            "value": "5"
+          },
+          {
+            "selected": false,
+            "text": "Todos (Comparação)",
+            "value": ".*"
+          }
+        ],
+        "query": "1,2,3,4,5,.*",
+        "queryValue": "",
+        "skipUrlSync": false,
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": ["5s", "10s", "30s", "1m", "5m"]
+  },
+  "timezone": "browser",
+  "title": "PSPD - Comparação de Cenários (1-5)",
+  "uid": "pspd-scenarios-comparison",
+  "version": 1
+}
