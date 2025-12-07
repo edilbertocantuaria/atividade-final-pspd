@@ -387,7 +387,7 @@ Aguarde ~10 segundos para todos os serviços iniciarem, depois acesse:
    http_requests_total{container="p"}
    ```
 
-   **⚠️ IMPORTANTE**: Use `container="p"` ou `job="p-svc"`, NÃO `container="p"`!  
+   **⚠️ IMPORTANTE**: Use `container="p"` ou `job="p-svc"`, NÃO `app="p"`!  
    O Prometheus usa labels diferentes dos labels do Kubernetes.
 
 3. **No Grafana** (http://localhost:3000):

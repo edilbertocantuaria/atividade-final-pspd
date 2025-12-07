@@ -1,16 +1,3 @@
-.dockerignore
-```
-.git
-.gitignore
-*.md
-test_results/
-results/
-__pycache__/
-*.pyc
-node_modules/
-
-```
-
 ATENDIMENTO_REQUISITOS.md
 ```
 # Atendimento aos Requisitos do Trabalho Final
@@ -918,16 +905,14 @@ kubectl get pods -n monitoring
 ```bash
 # Build das imagens (dentro do contexto Docker do Minikube)
 eval $(minikube -p minikube docker-env)
-docker build -t a-service:local ./services/a_py
-docker build -t b-service:local ./services/b_py
-docker build -t p-gateway:local ./gateway_p_node
+docker build -t a-py:latest ./services/a_py
+docker build -t b-py:latest ./services/b_py
+docker build -t p-node:latest ./gateway_p_node
 
 # Deploy dos serviços
 kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/a.yaml
-kubectl apply -f k8s/b.yaml
-kubectl apply -f k8s/p.yaml
-kubectl apply -f k8s/servicemonitors.yaml  # Apenas se instalou Prometheus
+kubectl apply -f k8s/
+kubectl apply -f k8s/monitoring/  # Apenas se instalou Prometheus
 ```
 **Tempo**: ~3 minutos  
 **Verificar**: `kubectl get pods -n pspd` (todos devem estar `Running`)
@@ -1014,6 +999,35 @@ kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 909
 # Para parar depois:
 pkill -f "port-forward.*monitoring"
 ```
+
+---
+
+## 📊 Visualizar Métricas e Dashboards
+
+### Guia Completo Passo a Passo
+
+📖 **[VISUALIZAR_METRICAS.md](./VISUALIZAR_METRICAS.md)** - Guia detalhado com screenshots e troubleshooting
+
+### Acesso Rápido
+
+**Prometheus** (métricas brutas):
+```bash
+kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090
+# → http://localhost:9090
+```
+
+**Grafana** (dashboards visuais):
+```bash
+# Port-forward
+kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80
+# → http://localhost:3000
+
+# Recuperar senha
+kubectl get secret -n monitoring prometheus-grafana -o jsonpath="{.data.admin-password}" | base64 -d
+# User: admin
+```
+
+**Dashboard customizado**: Importar `k8s/monitoring/grafana-dashboard.json`
 
 ---
 
@@ -1187,7 +1201,7 @@ timestamp = datetime.now().strftime("%d%b%Y_%Hh%Mm").lower()
 output_file = os.path.join(base_dir, f"codigos_{timestamp}.txt")
 
 # Pastas e arquivos a serem ignorados
-ignore_dirs = {".ipynb_checkpoints", "csv_collected", "data", "venv", ".git", "node_modules", ".next", "ui"}
+ignore_dirs = {".ipynb_checkpoints", "csv_collected", "data", "venv", ".git", "node_modules", ".next", "ui", "docs"}
 
 # Wrap os.walk to filter out unwanted files:
 _original_os_walk = os.walk
@@ -1208,7 +1222,7 @@ def _filtered_walk(top, topdown=True, onerror=None, followlinks=False):
         yield root, dirs, filtered_files
 
 os.walk = _filtered_walk
-ignore_files = {"readme.md", "run_load_tests.sh", "base_bronze.csv", "base_de_dados_prata.csv", "airbnb.ipynb", ".gitignore"}
+ignore_files = {"readme.md", "run_load_tests.sh", "base_bronze.csv", "base_de_dados_prata.csv", "airbnb.ipynb", ".gitignore", ".dockerignore", ".gitkeep", "metrics.json"}
 
 with open(output_file, "w", encoding="utf-8") as outfile:
     for root, dirs, files in os.walk(base_dir):
@@ -1233,6 +1247,759 @@ with open(output_file, "w", encoding="utf-8") as outfile:
             outfile.write(f"{relative_path}\n```\n{content}\n```\n\n")
 
 print(f"✅ Arquivo gerado com sucesso: {output_file}")
+
+```
+
+VISUALIZAR_METRICAS.md
+```
+# 📊 Como Visualizar Métricas e Dashboards
+
+Guia passo a passo para acessar Prometheus, Grafana e visualizar as métricas coletadas.
+
+---
+
+## 🎯 Pré-requisitos
+
+Certifique-se de que:
+- ✅ Cluster Kubernetes está rodando (`minikube status`)
+- ✅ Prometheus está instalado (`kubectl get pods -n monitoring`)
+- ✅ Aplicação está deployada (`kubectl get pods -n pspd`)
+- ✅ ServiceMonitors estão configurados (`kubectl get servicemonitor -n pspd`)
+
+---
+
+## ⚠️ IMPORTANTE: Geração de Métricas
+
+**As métricas só aparecem quando há tráfego na aplicação!**
+
+- 📊 **Prometheus coleta métricas**, mas se ninguém está fazendo requisições, os valores ficam zerados ou inexistentes
+- 🚀 **Para visualizar dados reais**: execute testes de carga ou faça requisições manuais
+- ⏱️ **Tempo de atualização**: Prometheus faz scrape a cada 15-30 segundos
+
+**Formas de gerar tráfego**:
+
+1. **Testes de carga automatizados** (recomendado):
+   ```bash
+   k6 run load/spike.js       # Pico de tráfego (1min)
+   k6 run load/baseline.js    # Carga constante (5min)
+   k6 run load/soak.js        # Teste longo (10min)
+   ```
+
+2. **Requisições manuais**:
+   ```bash
+   # Abrir acesso ao Gateway
+   kubectl port-forward -n pspd svc/p-svc 8080:80
+   
+   # Fazer requisições
+   curl "http://localhost:8080/api/content?type=all"
+   curl "http://localhost:8080/api/metadata/m1"
+   curl "http://localhost:8080/api/browse?type=movies"
+   ```
+
+3. **Loop simples** (para testes):
+   ```bash
+   kubectl port-forward -n pspd svc/p-svc 8080:80 &
+   while true; do curl -s "http://localhost:8080/api/content?type=all" > /dev/null; sleep 1; done
+   ```
+
+**Após gerar tráfego, aguarde 15-30 segundos** para as métricas aparecerem no Prometheus/Grafana.
+
+---
+
+## 📈 Opção 1: Prometheus (Visualização de Métricas Brutas)
+
+### Passo 1: Iniciar Port-Forward do Prometheus
+
+Abra um terminal e execute:
+
+```bash
+kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090
+```
+
+**Deixe este terminal aberto!** O comando ficará rodando.
+
+### Passo 2: Acessar Interface Web
+
+Abra seu navegador e acesse:
+```
+http://localhost:9090
+```
+
+### Passo 3: Verificar Targets (Serviços Monitorados)
+
+1. No Prometheus, clique em **Status** → **Targets**
+2. Procure pela seção **`serviceMonitor/pspd/...`**
+3. Você deve ver **3 targets UP** (verde):
+   - `serviceMonitor/pspd/service-a-monitor/0` → `10.x.x.x:9101`
+   - `serviceMonitor/pspd/service-b-monitor/0` → `10.x.x.x:9102`
+   - `serviceMonitor/pspd/gateway-p-monitor/0` → `10.x.x.x:8080`
+
+#### ⚠️ Se NÃO aparecer nenhum target com `serviceMonitor/pspd`
+
+**Causa**: ServiceMonitors não foram criados ou Prometheus não os descobriu ainda.
+
+**Solução**:
+```bash
+# 1. Verificar se ServiceMonitors existem
+kubectl get servicemonitor -n pspd
+
+# Se retornar "No resources found":
+# 2. Criar os ServiceMonitors
+kubectl containerly -f k8s/servicemonitors.yaml
+
+# 3. Aguardar 15-30 segundos e recarregar página do Prometheus
+# 4. Verificar se apareceram em Status → Targets
+```
+
+#### 🔴 Se targets aparecem mas estão DOWN (vermelho)
+
+**Causa**: Pods não estão rodando ou não estão expondo métricas corretamente.
+
+**Solução**:
+```bash
+# 1. Verificar se pods estão Running
+kubectl get pods -n pspd
+
+# Se algum pod NÃO está Running:
+# 2. Ver logs do pod com problema
+kubectl logs -n pspd -l container=a  # para Service A
+kubectl logs -n pspd -l container=b  # para Service B
+kubectl logs -n pspd -l container=p  # para Gateway P
+
+# 3. Reconstruir imagens e reiniciar pods
+eval $(minikube -p minikube docker-env)
+docker build -t a-service:local ./services/a_py
+docker build -t b-service:local ./services/b_py
+docker build -t p-gateway:local ./gateway_p_node
+
+kubectl delete pod --all -n pspd
+kubectl wait --for=condition=ready pod --all -n pspd --timeout=60s
+
+# 4. Aguardar 15-30 segundos e verificar targets novamente
+```
+
+#### ✅ Verificar se métricas estão sendo expostas
+
+```bash
+# Testar endpoint de métricas diretamente
+kubectl exec -n pspd deploy/a-deploy -- python3 -c "import urllib.request; print(urllib.request.urlopen('http://localhost:9101/metrics').read().decode()[:500])"
+
+# Se retornar erro, o servidor de métricas não está rodando
+# Verifique os logs do pod para identificar o problema
+```
+
+### Passo 4: Explorar Métricas
+
+**⚠️ LEMBRE-SE**: As queries abaixo só retornarão dados se houver tráfego na aplicação!  
+**Execute um teste de carga primeiro** (veja seção "Gerar Métricas com Testes de Carga" abaixo).
+
+No **Graph** (aba superior), teste estas queries:
+
+#### Requisições HTTP por segundo (Gateway P)
+```promql
+rate(http_requests_total{container="p"}[1m])
+```
+
+#### Latência P95 do Gateway
+```promql
+histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{container="p"}[1m]))
+```
+
+#### Requisições gRPC do Service A
+```promql
+rate(grpc_server_requests_total{container="a"}[1m])
+```
+
+#### Itens streamed pelo Service B
+```promql
+rate(grpc_server_stream_items_total{container="b"}[1m])
+```
+
+#### CPU dos Pods
+```promql
+rate(container_cpu_usage_seconds_total{namespace="pspd"}[1m])
+```
+
+#### Réplicas HPA
+```promql
+kube_horizontalpodautoscaler_status_current_replicas{namespace="pspd"}
+```
+
+**Dica**: Clique em **Execute** e depois em **Graph** para ver o gráfico!
+
+---
+
+## 🎨 Opção 2: Grafana (Dashboards Visuais)
+
+### Passo 1: Iniciar Port-Forward do Grafana
+
+Abra um **novo terminal** e execute:
+
+```bash
+kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80
+```
+
+**Deixe este terminal aberto!**
+
+### Passo 2: Recuperar Senha do Grafana
+
+Em outro terminal, execute:
+
+```bash
+kubectl get secret -n monitoring prometheus-grafana -o jsonpath="{.data.admin-password}" | base64 -d && echo
+```
+
+Copie a senha que aparecer (algo como: `RnoVJN3Y4KyzMfmgwExIzqiIXq90jEtgrqLNmBjb`)
+
+### Passo 3: Fazer Login no Grafana
+
+1. Abra seu navegador: http://localhost:3000
+2. **Usuário**: `admin`
+3. **Senha**: Cole a senha copiada no passo anterior
+4. Clique em **Log in**
+
+### Passo 4: Explorar Dashboards Pré-instalados
+
+No menu lateral, clique em **☰** → **Dashboards**
+
+Dashboards úteis para o projeto:
+
+#### 1. **Kubernetes / Compute Resources / Namespace (Pods)**
+- Mostra CPU e Memória de todos os pods do namespace `pspd`
+- Para ver suas métricas: filtro superior → namespace: `pspd`
+
+#### 2. **Kubernetes / Compute Resources / Pod**
+- Métricas detalhadas de um pod específico
+- Escolha pod: `a-deploy-xxx`, `b-deploy-xxx` ou `p-deploy-xxx`
+
+#### 3. **Node Exporter / Nodes**
+- Métricas dos nós do cluster
+- CPU, memória, disco, rede
+
+### Passo 5: Importar Dashboard Customizado da Aplicação
+
+1. No Grafana, clique em **☰** → **Dashboards** → **Import**
+2. Clique em **Upload JSON file**
+3. Selecione: `/home/edilberto/pspd/atividade-final-pspd/k8s/monitoring/grafana-dashboard.json`
+4. Em **Prometheus**, selecione: **Prometheus** (deve ser a única opção)
+5. Clique em **Import**
+
+**Dashboard inclui**:
+- Taxa de requisições HTTP
+- Latência (P50, P95, P99)
+- Taxa de erros
+- Número de réplicas (HPA)
+- CPU/Memória por pod
+- Throughput gRPC
+
+### Passo 6: Criar Painel Customizado
+
+1. Clique em **☰** → **Dashboards** → **New** → **New Dashboard**
+2. Clique em **Add visualization**
+3. Selecione **Prometheus** como data source
+4. Cole uma query PromQL (exemplos acima)
+5. Configure:
+   - **Title**: Nome descritivo
+   - **Legend**: `{{pod}}` ou `{{container}}`
+   - **Unit**: Escolha apropriada (req/s, ms, bytes, etc.)
+6. Clique em **containerly**
+7. **Save dashboard** (ícone de disquete no topo)
+
+---
+
+## 🧪 Gerar Métricas com Testes de Carga
+
+### Opção 1: Testes de Carga Automatizados (K6)
+
+Para ver as métricas em ação, execute testes de carga:
+
+#### Terminal 1: Monitoramento em tempo real
+```bash
+./scripts/run_all_tests.sh monitor
+```
+
+#### Terminal 2: Port-forward da aplicação
+```bash
+kubectl port-forward -n pspd svc/p-svc 8080:80
+```
+
+#### Terminal 3: Executar teste
+```bash
+BASE_URL=http://localhost:8080 ./scripts/run_all_tests.sh spike
+```
+
+Agora volte para **Grafana** ou **Prometheus** e veja as métricas subindo em tempo real! 📈
+
+---
+
+### Opção 2: Frontend Local + Backend Local (Fluxo Completo)
+
+Execute a aplicação frontend Next.js localmente conectada ao backend Kubernetes e observe métricas em tempo real.
+
+#### Passo 1: Preparar Ambiente
+
+```bash
+# Verificar se cluster está rodando
+minikube status
+
+# Verificar se aplicação está deployada
+kubectl get pods -n pspd
+# Deve mostrar: a-deploy, b-deploy, p-deploy (todos Running)
+```
+
+#### Passo 2: Configurar Frontend
+
+```bash
+# No Windows, navegue para a pasta do frontend
+# C:\Users\edilb\OneDrive\Documentos\streaming-container-design
+
+# Criar arquivo de configuração .env.local
+# No PowerShell ou CMD:
+echo NEXT_PUBLIC_API_URL=http://localhost:8081 > .env.local
+
+# Instalar dependências (se ainda não instalou)
+npm install
+```
+
+**⚠️ IMPORTANTE**: Estamos usando porta `8081` para evitar conflito com outras aplicações na porta 8080.
+
+#### Passo 3: Iniciar Todos os Serviços
+
+Abra **4 terminais WSL (Ubuntu)** e execute em cada um:
+
+**Terminal 1 - Backend (Port-forward)**:
+```bash
+cd /home/edilberto/pspd/atividade-final-pspd
+kubectl port-forward -n pspd svc/p-svc 8081:80
+```
+**Deixe este terminal aberto e rodando!** Você verá mensagens como "Handling connection for 8081" quando o frontend fizer requisições.
+
+**Terminal 2 - Prometheus**:
+```bash
+kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090
+```
+
+**Terminal 3 - Grafana**:
+```bash
+kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80
+```
+
+**Terminal 4 - Frontend (Next.js no Windows)**:
+```powershell
+# No PowerShell ou CMD do Windows
+cd C:\Users\edilb\OneDrive\Documentos\streaming-container-design
+npm run dev
+```
+
+
+#### Passo 4: Acessar Aplicações
+
+Aguarde ~10 segundos para todos os serviços iniciarem, depois acesse:
+
+1. **Frontend Next.js**: http://localhost:3001
+   - Login: `emailcontateste@dominio.com`
+   - Senha: `1234567890`
+
+2. **Backend API**: http://localhost:8081
+   - Teste: `curl http://localhost:8081/api/content?type=all`
+
+3. **Prometheus**: http://localhost:9090
+   - Vá em Graph e execute queries PromQL
+
+4. **Grafana**: http://localhost:3000
+   - Login: `admin` / senha do secret (veja Passo 2 da seção Grafana acima)
+
+#### Passo 5: Navegar no Frontend e Observar Métricas
+
+1. **No Frontend** (http://localhost:3001):
+   - Faça login
+   - Clique em **Browse** → **Movies**
+   - Clique em **Browse** → **Series**
+   - Clique em **Browse** → **Live TV**
+   - Abra detalhes de alguns conteúdos
+
+2. **No Prometheus** (http://localhost:9090/graph):
+   
+   Execute esta query e veja os dados atualizando:
+   ```promql
+   # Taxa de requisições em tempo real
+   rate(http_requests_total{container="p"}[30s])
+   
+   # OU usando job (nome do serviço)
+   rate(http_requests_total{job="p-svc"}[1m])
+   ```
+   
+   Outras queries úteis:
+   ```promql
+   # Requisições por endpoint
+   sum by (route) (rate(http_requests_total{container="p"}[1m]))
+   
+   # Latência P95
+   histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{container="p"}[1m]))
+   
+   # Total de requisições
+   http_requests_total{container="p"}
+   ```
+
+   **⚠️ IMPORTANTE**: Use `container="p"` ou `job="p-svc"`, NÃO `container="p"`!  
+   O Prometheus usa labels diferentes dos labels do Kubernetes.
+
+3. **No Grafana** (http://localhost:3000):
+   - Importe o dashboard: `k8s/monitoring/grafana-dashboard.json`
+   - Veja gráficos atualizando conforme você navega no frontend
+
+#### Passo 6: Observar Logs em Tempo Real (Opcional)
+
+Em um **5º terminal**, acompanhe os logs do Gateway P:
+
+```bash
+kubectl logs -n pspd -l container=p -f
+```
+
+Você verá cada requisição sendo processada quando navega no frontend:
+```
+GET /api/content?type=movies - 200 OK - 145ms
+GET /api/metadata/m1 - 200 OK - 89ms
+GET /api/browse?type=series - 200 OK - 123ms
+```
+
+#### Passo 7: Verificar Métricas Específicas
+
+**Consultas úteis no Prometheus**:
+
+```promql
+# Total de requisições nos últimos 5 minutos
+sum(increase(http_requests_total{container="p"}[5m]))
+
+# Endpoints mais acessados
+topk(5, sum by (route) (rate(http_requests_total{container="p"}[5m])))
+
+# Latência média por endpoint
+avg by (route) (rate(http_request_duration_seconds_sum{container="p"}[1m]) / rate(http_request_duration_seconds_count{container="p"}[1m]))
+
+# CPU do Gateway P
+rate(container_cpu_usage_seconds_total{namespace="pspd",pod=~"p-deploy.*"}[1m])
+```
+
+#### 🎯 Fluxo Completo: Frontend → Backend → Métricas
+
+```
+Você navega no Frontend (localhost:3001)
+         ↓
+Frontend faz fetch('/api/content')
+         ↓
+Requisição HTTP → Backend Gateway P (localhost:8081)
+         ↓
+Gateway P converte HTTP → gRPC
+         ↓
+Service A (catálogo) ou Service B (metadata) responde
+         ↓
+Gateway P incrementa métricas Prometheus
+         ↓
+Prometheus faz scrape das métricas (a cada 15s)
+         ↓
+Você vê métricas atualizando no Prometheus/Grafana!
+```
+
+#### 🐛 Troubleshooting Frontend Local
+
+**Problema: "TypeError: clientA.GetContent is not a function"**
+
+**Causa**: O arquivo `gateway_p_node/proto/services.proto` está desatualizado ou incorreto.
+
+**Solução**:
+```bash
+# 1. Copiar proto correto
+cp /home/edilberto/pspd/atividade-final-pspd/proto/services.proto \
+   /home/edilberto/pspd/atividade-final-pspd/gateway_p_node/proto/services.proto
+
+# 2. Rebuild imagem do Gateway P
+eval $(minikube docker-env)
+docker build -t p-gateway:local ./gateway_p_node
+
+# 3. Reiniciar pod
+kubectl delete pod -n pspd -l container=p
+kubectl wait --for=condition=ready pod -n pspd -l container=p --timeout=60s
+```
+
+**Problema: Frontend não conecta ao backend**
+
+Verifique:
+```bash
+# 1. Backend está acessível?
+curl http://localhost:8081/api/content?type=all
+
+# 2. Arquivo .env.local existe? (no Windows)
+# No PowerShell:
+cat C:\Users\edilb\OneDrive\Documentos\streaming-container-design\.env.local
+# Deve mostrar: NEXT_PUBLIC_API_URL=http://localhost:8081
+
+# 3. Next.js está usando a variável?
+# No navegador, abra DevTools → Console e execute:
+# console.log(process.env.NEXT_PUBLIC_API_URL)
+```
+
+**Problema: CORS error no navegador**
+
+Se aparecer erro de CORS no console do navegador, adicione CORS no Gateway P:
+
+```bash
+# Ver se já tem CORS configurado
+kubectl logs -n pspd -l container=p | grep -i cors
+
+# Se necessário, edite gateway_p_node/server.js e adicione:
+# container.use(cors({ origin: 'http://localhost:3001' }))
+# Depois rebuild: docker build -t p-gateway:local ./gateway_p_node
+# E restart: kubectl delete pod -n pspd -l container=p
+```
+
+**Problema: Métricas não aparecem**
+
+```bash
+# Verificar se está gerando tráfego
+kubectl logs -n pspd -l container=p --tail=20
+
+# Deve mostrar logs de requisições HTTP quando você navega
+# Se não aparecer, o frontend não está fazendo requisições ao backend
+```
+
+#### ✅ Checklist Frontend Local
+
+- [ ] Port-forward do backend rodando (porta 8081 → serviço porta 80)
+- [ ] Terminal mostra "Handling connection for 8081" quando frontend faz requisições
+- [ ] Frontend Next.js rodando (porta 3001 no Windows)
+- [ ] `.env.local` configurado com `NEXT_PUBLIC_API_URL=http://localhost:8081`
+- [ ] Prometheus acessível (porta 9090)
+- [ ] Grafana acessível (porta 3000)
+- [ ] Login no frontend funciona
+- [ ] Navegação carrega conteúdos do backend
+- [ ] Logs do Gateway P mostram requisições (veja Terminal 1)
+- [ ] Métricas aparecem no Prometheus
+- [ ] Dashboard Grafana atualiza em tempo real
+
+**Se todos os itens estão ✅, o fluxo completo está funcionando!** 🎉
+
+---
+
+## 🔍 Verificar se Métricas Estão Sendo Coletadas
+
+### Método 1: Via Port-Forward Direto nos Pods
+
+```bash
+# Service A (porta 9101)
+kubectl port-forward -n pspd svc/a-svc 9101:9101
+curl http://localhost:9101/metrics | grep grpc_server
+
+# Service B (porta 9102)
+kubectl port-forward -n pspd svc/b-svc 9102:9102
+curl http://localhost:9102/metrics | grep grpc_server
+
+# Gateway P (porta 8080)
+kubectl port-forward -n pspd svc/p-svc 8080:80
+curl http://localhost:8080/metrics | grep http_requests
+```
+
+Deve aparecer algo como:
+```
+grpc_server_requests_total{method="GetContent",status="success"} 42.0
+http_requests_total{method="GET",route="/api/content",status_code="200"} 156.0
+```
+
+### Método 2: Via Prometheus Targets
+
+1. Acesse Prometheus: http://localhost:9090/targets
+2. Procure por `serviceMonitor/pspd`
+3. Verifique:
+   - **State**: UP (verde) ✅
+   - **Last Scrape**: Recente (<1min)
+   - **Scrape Duration**: Baixo (<100ms)
+
+### Método 3: Query no Prometheus
+
+No Prometheus, execute:
+```promql
+up{namespace="pspd"}
+```
+
+Resultado esperado:
+```
+up{job="serviceMonitor/pspd/gateway-p-monitor/0", namespace="pspd"} = 1
+up{job="serviceMonitor/pspd/service-a-monitor/0", namespace="pspd"} = 1
+up{job="serviceMonitor/pspd/service-b-monitor/0", namespace="pspd"} = 1
+```
+
+**1 = UP ✅ | 0 = DOWN ❌**
+
+---
+
+## 📊 Queries PromQL Úteis
+
+### Métricas da Aplicação
+
+#### Taxa de Requisições HTTP
+```promql
+sum(rate(http_requests_total{namespace="pspd"}[1m])) by (container, route)
+```
+
+#### Latência P95 por Endpoint
+```promql
+histogram_quantile(0.95, 
+  sum(rate(http_request_duration_seconds_bucket{namespace="pspd"}[5m])) 
+  by (le, route)
+)
+```
+
+#### Taxa de Erro (HTTP 5xx)
+```promql
+sum(rate(http_requests_total{namespace="pspd",status_code=~"5.."}[1m])) 
+/ 
+sum(rate(http_requests_total{namespace="pspd"}[1m])) * 100
+```
+
+#### gRPC Request Rate (Service A)
+```promql
+rate(grpc_server_requests_total{container="a",status="success"}[1m])
+```
+
+#### Streaming Items/s (Service B)
+```promql
+rate(grpc_server_stream_items_total{container="b"}[1m])
+```
+
+### Métricas de Infraestrutura
+
+#### CPU por Pod
+```promql
+sum(rate(container_cpu_usage_seconds_total{namespace="pspd"}[1m])) by (pod)
+```
+
+#### Memória por Pod
+```promql
+sum(container_memory_working_set_bytes{namespace="pspd"}) by (pod) / 1024 / 1024
+```
+
+#### Réplicas Atual vs Desejado (HPA)
+```promql
+kube_horizontalpodautoscaler_status_current_replicas{namespace="pspd"}
+kube_horizontalpodautoscaler_spec_max_replicas{namespace="pspd"}
+```
+
+#### Network In/Out
+```promql
+rate(container_network_receive_bytes_total{namespace="pspd"}[1m])
+rate(container_network_transmit_bytes_total{namespace="pspd"}[1m])
+```
+
+---
+
+## 🐛 Troubleshooting
+
+### Problema: "No data points" no Grafana
+
+**Causa**: Métricas ainda não foram geradas (aplicação não recebeu tráfego)
+
+**Solução - Opção 1: Executar teste de carga** (recomendado):
+```bash
+# Teste rápido de 1 minuto
+k6 run load/spike.js
+
+# OU teste baseline de 5 minutos
+k6 run load/baseline.js
+```
+
+**Solução - Opção 2: Gerar tráfego manual**:
+```bash
+# Terminal 1: Abrir acesso
+kubectl port-forward -n pspd svc/p-svc 8080:80
+
+# Terminal 2: Fazer várias requisições
+for i in {1..50}; do
+  curl -s "http://localhost:8080/api/content?type=all" > /dev/null
+  curl -s "http://localhost:8080/api/metadata/m$i" > /dev/null
+  curl -s "http://localhost:8080/api/browse?type=movies" > /dev/null
+done
+
+# Aguardar 15-30 segundos para Prometheus fazer scrape
+```
+
+### Problema: Targets DOWN no Prometheus
+
+**Verificar pods**:
+```bash
+kubectl get pods -n pspd
+```
+
+**Se pods não estão Running**:
+```bash
+# Ver logs
+kubectl logs -n pspd -l container=a
+
+# Reiniciar
+kubectl delete pod --all -n pspd
+kubectl wait --for=condition=ready pod --all -n pspd --timeout=60s
+```
+
+**Verificar ServiceMonitors**:
+```bash
+kubectl get servicemonitor -n pspd
+kubectl describe servicemonitor service-a-monitor -n pspd
+```
+
+### Problema: Senha do Grafana não funciona
+
+**Resetar senha**:
+```bash
+# Deletar pod do Grafana para recriar
+kubectl delete pod -n monitoring -l container.kubernetes.io/name=grafana
+
+# Aguardar pod ficar pronto
+kubectl wait --for=condition=ready pod -n monitoring -l container.kubernetes.io/name=grafana --timeout=60s
+
+# Recuperar nova senha
+kubectl get secret -n monitoring prometheus-grafana -o jsonpath="{.data.admin-password}" | base64 -d
+```
+
+### Problema: Port-forward para ou cai
+
+**Usar script estável** (mantém rodando):
+```bash
+./scripts/stable_port_forward.sh
+```
+
+Ou **manualmente** com loop:
+```bash
+while true; do
+  kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80
+  echo "Port-forward caiu, reconectando em 5s..."
+  sleep 5
+done
+```
+
+---
+
+## 📚 Próximos Passos
+
+1. ✅ Acesse Prometheus: http://localhost:9090
+2. ✅ Verifique targets estão UP: Status → Targets
+3. ✅ Acesse Grafana: http://localhost:3000 (admin + senha do secret)
+4. ✅ Importe dashboard: `k8s/monitoring/grafana-dashboard.json`
+5. ✅ Execute teste de carga: `./scripts/run_all_tests.sh spike`
+6. ✅ Observe métricas em tempo real no Grafana
+7. ✅ Explore queries PromQL no Prometheus
+
+---
+
+## 🎯 Checklist de Validação
+
+- [ ] Prometheus acessível em http://localhost:9090
+- [ ] 3 targets UP no Prometheus (a, b, p)
+- [ ] Grafana acessível em http://localhost:3000
+- [ ] Dashboard customizado importado
+- [ ] Métricas aparecem após gerar tráfego
+- [ ] HPA scaling visível nos dashboards
+- [ ] Latência P95 < 200ms em baseline test
+
+**Se todos os itens estiverem ✅, seu monitoramento está 100% funcional!** 🎉
 
 ```
 
@@ -2998,1808 +3765,7 @@ spec:
 
 ```
 
-services/b_rest/Dockerfile
-```
-FROM python:3.12-slim
-WORKDIR /app
-
-# 1) Instala deps específicas do serviço REST B
-COPY services/b_rest/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# 2) Copia só o código do serviço
-COPY services/b_rest/ .
-
-# (Opcional) Se o REST B usar os protos, descomente:
-# COPY proto/ ./proto/
-# RUN touch /app/proto/__init__.py
-# ENV PYTHONPATH=/app:/app/proto
-
-EXPOSE 8000
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
-
-```
-
-services/b_rest/main.py
-```
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse
-import time
-
-app = FastAPI(title="B-REST-Streaming")
-
-# Base de metadados e recomendações
-METADATA_DB = {
-    "m1": [{"key": "director", "value": "James Cameron", "score": 0.95}, 
-           {"key": "cast", "value": "Chris Evans, Zoe Saldana", "score": 0.90}, 
-           {"key": "similar", "value": "Interestelar", "score": 0.85}],
-    "m2": [{"key": "director", "value": "Christopher Nolan", "score": 0.95}, 
-           {"key": "cast", "value": "Leonardo DiCaprio", "score": 0.90},
-           {"key": "similar", "value": "Amnésia", "score": 0.88}],
-    "m3": [{"key": "director", "value": "Nancy Meyers", "score": 0.92}, 
-           {"key": "cast", "value": "Julia Roberts, Tom Hanks", "score": 0.88},
-           {"key": "similar", "value": "Amor à Segunda Vista", "score": 0.85}],
-    "m4": [{"key": "director", "value": "Ridley Scott", "score": 0.94}, 
-           {"key": "cast", "value": "Tom Hardy, Charlize Theron", "score": 0.91},
-           {"key": "similar", "value": "Mad Max", "score": 0.90}],
-    "s1": [{"key": "creator", "value": "J.J. Abrams", "score": 0.96}, 
-           {"key": "cast", "value": "Millie Bobby Brown", "score": 0.92},
-           {"key": "similar", "value": "Dark", "score": 0.90}],
-    "s2": [{"key": "creator", "value": "Vince Gilligan", "score": 0.95}, 
-           {"key": "cast", "value": "Bryan Cranston", "score": 0.93},
-           {"key": "similar", "value": "True Detective", "score": 0.89}],
-}
-
-@app.get("/api/metadata/{content_id}")
-def get_metadata(content_id: str, userId: str = "guest"):
-    """Retorna metadados e recomendações para um conteúdo"""
-    metadata = METADATA_DB.get(content_id, [])
-    
-    # Simula processamento
-    time.sleep(0.05)
-    
-    # Se não houver metadados, retorna recomendações genéricas
-    if not metadata:
-        metadata = [
-            {"key": "recommendation", "value": f"Conteúdo recomendado #1", "score": 0.7},
-            {"key": "recommendation", "value": f"Conteúdo recomendado #2", "score": 0.6},
-            {"key": "recommendation", "value": f"Conteúdo recomendado #3", "score": 0.5},
-        ]
-    
-    return JSONResponse({
-        "content_id": content_id,
-        "user_id": userId,
-        "metadata": metadata,
-        "source": "B-REST"
-    })
-
-
-```
-
-services/b_py/Dockerfile
-```
-FROM python:3.11-slim AS builder
-
-WORKDIR /app
-
-# Install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
-
-# Final stage
-FROM python:3.11-slim
-
-WORKDIR /app
-
-# Copy dependencies from builder
-COPY --from=builder /root/.local /root/.local
-
-# Copy application
-COPY . .
-
-# Make sure scripts in .local are usable
-ENV PATH=/root/.local/bin:$PATH
-
-# Generate proto files
-RUN python -m grpc_tools.protoc -I. \
-    --python_out=. \
-    --grpc_python_out=. \
-    proto/services.proto
-
-EXPOSE 50052 9102
-
-CMD ["python", "server.py"]
-
-```
-
-services/b_py/server.py
-```
-import grpc
-from concurrent import futures
-import time, os
-from prometheus_client import start_http_server, Counter, Histogram
-
-from proto import services_pb2, services_pb2_grpc
-
-# Prometheus metrics
-REQUEST_COUNT = Counter(
-    'grpc_server_requests_total',
-    'Total gRPC requests to Service B',
-    ['method', 'status']
-)
-
-REQUEST_LATENCY = Histogram(
-    'grpc_server_request_duration_seconds',
-    'gRPC request latency for Service B',
-    ['method'],
-    buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5]
-)
-
-STREAM_ITEMS = Counter(
-    'grpc_server_stream_items_total',
-    'Total items streamed by Service B',
-    ['method']
-)
-
-# Base de metadados e recomendações
-METADATA_DB = {
-    "m1": [("director", "James Cameron", 0.95), ("cast", "Chris Evans, Zoe Saldana", 0.90), 
-           ("similar", "Interestelar", 0.85), ("similar", "Gravidade", 0.80)],
-    "m2": [("director", "Christopher Nolan", 0.95), ("cast", "Leonardo DiCaprio", 0.90),
-           ("similar", "Amnésia", 0.88), ("similar", "Ilha do Medo", 0.82)],
-    "m3": [("director", "Nancy Meyers", 0.92), ("cast", "Julia Roberts, Tom Hanks", 0.88),
-           ("similar", "Amor à Segunda Vista", 0.85), ("similar", "Você Tem Um Email", 0.80)],
-    "m4": [("director", "Ridley Scott", 0.94), ("cast", "Tom Hardy, Charlize Theron", 0.91),
-           ("similar", "Mad Max", 0.90), ("similar", "John Wick", 0.85)],
-    "s1": [("creator", "J.J. Abrams", 0.96), ("cast", "Millie Bobby Brown", 0.92),
-           ("similar", "Dark", 0.90), ("similar", "Stranger Things", 0.88)],
-    "s2": [("creator", "Vince Gilligan", 0.95), ("cast", "Bryan Cranston", 0.93),
-           ("similar", "True Detective", 0.89), ("similar", "Mindhunter", 0.84)],
-    "s3": [("creator", "Greg Garcia", 0.90), ("cast", "Amy Poehler", 0.87),
-           ("similar", "Modern Family", 0.88), ("similar", "Brooklyn Nine-Nine", 0.83)],
-    "s4": [("creator", "David Chase", 0.97), ("cast", "James Gandolfini", 0.95),
-           ("similar", "The Wire", 0.92), ("similar", "Breaking Bad", 0.90)],
-}
-
-class ServiceBImpl(services_pb2_grpc.ServiceBServicer):
-    def StreamMetadata(self, request, context):
-        """Retorna stream de metadados e recomendações para um conteúdo"""
-        start = time.time()
-        try:
-            content_id = request.content_id
-            metadata_list = METADATA_DB.get(content_id, [])
-            
-            # Simula processamento incremental (análise de dados)
-            for key, value, score in metadata_list:
-                time.sleep(0.01)  # Simula latência de processamento
-                yield services_pb2.MetadataItem(
-                    key=key,
-                    value=value,
-                    relevance_score=score
-                )
-                STREAM_ITEMS.labels(method='StreamMetadata').inc()
-            
-            # Adiciona recomendações genéricas se não houver metadados
-            if not metadata_list:
-                for i in range(3):
-                    time.sleep(0.01)
-                    yield services_pb2.MetadataItem(
-                        key="recommendation",
-                        value=f"Conteúdo recomendado #{i+1}",
-                        relevance_score=0.7 - (i * 0.1)
-                    )
-                    STREAM_ITEMS.labels(method='StreamMetadata').inc()
-            
-            REQUEST_COUNT.labels(method='StreamMetadata', status='success').inc()
-            
-        except Exception as e:
-            REQUEST_COUNT.labels(method='StreamMetadata', status='error').inc()
-            context.set_code(grpc.StatusCode.INTERNAL)
-            context.set_details(f"Error: {str(e)}")
-        finally:
-            REQUEST_LATENCY.labels(method='StreamMetadata').observe(time.time() - start)
-
-def serve():
-    # Start Prometheus metrics server
-    metrics_port = int(os.environ.get("METRICS_PORT", "9102"))
-    start_http_server(metrics_port)
-    print(f"Metrics server started on :{metrics_port}", flush=True)
-    
-    port = int(os.environ.get("PORT", "50052"))
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    services_pb2_grpc.add_ServiceBServicer_to_server(ServiceBImpl(), server)
-    server.add_insecure_port(f"[::]:{port}")
-    server.start()
-    print(f"Service B listening on :{port}", flush=True)
-    try:
-        while True:
-            time.sleep(86400)
-    except KeyboardInterrupt:
-        server.stop(0)
-
-if __name__ == "__main__":
-    serve()
-
-```
-
-services/b_py/proto/services.proto
-```
-syntax = "proto3";
-
-package pspd;
-
-message HelloRequest { string name = 1; }
-message HelloReply { string message = 1; }
-
-service ServiceA {
-  rpc SayHello(HelloRequest) returns (HelloReply);
-}
-
-message StreamRequest { int32 count = 1; int32 delay_ms = 2; }
-message NumberReply { int32 value = 1; }
-
-service ServiceB {
-  rpc StreamNumbers(StreamRequest) returns (stream NumberReply);
-}
-
-```
-
-services/a_rest/Dockerfile
-```
-FROM python:3.12-slim
-WORKDIR /app
-
-# Copia só o requirements do serviço (cache)
-COPY services/a_rest/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Agora o código do serviço
-COPY services/a_rest/ .
-
-# Se usar os protos no REST, descomente:
-# COPY proto/ ./proto/
-# RUN touch /app/proto/__init__.py
-# ENV PYTHONPATH=/app:/app/proto
-
-EXPOSE 8000
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
-
-```
-
-services/a_rest/main.py
-```
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse
-import time
-
-app = FastAPI(title="A-REST-Streaming")
-
-# Catálogo de conteúdo
-CONTENT_CATALOG = [
-    {"id": "m1", "title": "A Jornada Infinita", "description": "Uma aventura épica através das galáxias",
-     "type": "movie", "genres": ["Ficção Científica", "Aventura"], "year": 2024, "rating": 8.7, "duration": "2h 15min"},
-    {"id": "m2", "title": "Segredos do Passado", "description": "Um thriller psicológico sobre memórias esquecidas",
-     "type": "movie", "genres": ["Thriller", "Drama"], "year": 2024, "rating": 8.2, "duration": "1h 55min"},
-    {"id": "m3", "title": "Risadas na Cidade", "description": "Uma comédia romântica em uma metrópole agitada",
-     "type": "movie", "genres": ["Comédia", "Romance"], "year": 2024, "rating": 7.5, "duration": "1h 45min"},
-    {"id": "m4", "title": "O Último Guardião", "description": "Um guerreiro protege a última esperança da humanidade",
-     "type": "movie", "genres": ["Ação", "Aventura"], "year": 2023, "rating": 8.9, "duration": "2h 30min"},
-    {"id": "s1", "title": "Dimensões Paralelas", "description": "Cientistas descobrem portal para realidades alternativas",
-     "type": "series", "genres": ["Ficção Científica", "Drama"], "year": 2024, "rating": 9.1, "duration": "3 temporadas"},
-    {"id": "s2", "title": "Cidade Sombria", "description": "Detetives investigam crimes sobrenaturais",
-     "type": "series", "genres": ["Suspense", "Sobrenatural"], "year": 2023, "rating": 8.8, "duration": "2 temporadas"},
-]
-
-@app.get("/api/content")
-def get_content(type: str = "all", limit: int = 20, genre: str = ""):
-    """Retorna catálogo de conteúdo filtrado"""
-    # Filtrar por tipo
-    filtered = CONTENT_CATALOG if type == "all" else [
-        c for c in CONTENT_CATALOG if c["type"] == type
-    ]
-    
-    # Filtrar por gênero
-    if genre:
-        filtered = [c for c in filtered if genre in c["genres"]]
-    
-    # Aplicar limite
-    filtered = filtered[:limit]
-    
-    return JSONResponse({
-        "items": filtered,
-        "total": len(filtered),
-        "source": "A-REST"
-    })
-
-@app.get("/api/content/{content_id}")
-def get_content_by_id(content_id: str):
-    """Retorna detalhes de um conteúdo específico"""
-    for item in CONTENT_CATALOG:
-        if item["id"] == content_id:
-            return JSONResponse(item)
-    return JSONResponse({"error": "Content not found"}, status_code=404)
-
-
-```
-
-services/a_py/Dockerfile
-```
-FROM python:3.11-slim AS builder
-
-WORKDIR /app
-
-# Install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
-
-# Final stage
-FROM python:3.11-slim
-
-WORKDIR /app
-
-# Copy dependencies from builder
-COPY --from=builder /root/.local /root/.local
-
-# Copy application
-COPY . .
-
-# Make sure scripts in .local are usable
-ENV PATH=/root/.local/bin:$PATH
-
-# Generate proto files
-RUN python -m grpc_tools.protoc -I. \
-    --python_out=. \
-    --grpc_python_out=. \
-    proto/services.proto
-
-EXPOSE 50051 9101
-
-CMD ["python", "server.py"]
-
-```
-
-services/a_py/server.py
-```
-import grpc
-from concurrent import futures
-import time, os
-from prometheus_client import start_http_server, Counter, Histogram
-
-from proto import services_pb2, services_pb2_grpc
-
-# Prometheus metrics
-REQUEST_COUNT = Counter(
-    'grpc_server_requests_total',
-    'Total gRPC requests to Service A',
-    ['method', 'status']
-)
-
-REQUEST_LATENCY = Histogram(
-    'grpc_server_request_duration_seconds',
-    'gRPC request latency for Service A',
-    ['method'],
-    buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5]
-)
-
-CONTENT_ITEMS_RETURNED = Counter(
-    'content_items_returned_total',
-    'Total content items returned',
-    ['content_type']
-)
-
-# Catálogo de conteúdo simulado
-CONTENT_CATALOG = [
-    {"id": "m1", "title": "A Jornada Infinita", "description": "Uma aventura épica através das galáxias",
-     "type": "movie", "genres": ["Ficção Científica", "Aventura"], "year": 2024, "rating": 8.7, "duration": "2h 15min"},
-    {"id": "m2", "title": "Segredos do Passado", "description": "Um thriller psicológico sobre memórias esquecidas",
-     "type": "movie", "genres": ["Thriller", "Drama"], "year": 2024, "rating": 8.2, "duration": "1h 55min"},
-    {"id": "m3", "title": "Risadas na Cidade", "description": "Uma comédia romântica em uma metrópole agitada",
-     "type": "movie", "genres": ["Comédia", "Romance"], "year": 2024, "rating": 7.5, "duration": "1h 45min"},
-    {"id": "m4", "title": "O Último Guardião", "description": "Um guerreiro protege a última esperança da humanidade",
-     "type": "movie", "genres": ["Ação", "Aventura"], "year": 2023, "rating": 8.9, "duration": "2h 30min"},
-    {"id": "s1", "title": "Dimensões Paralelas", "description": "Cientistas descobrem portal para realidades alternativas",
-     "type": "series", "genres": ["Ficção Científica", "Drama"], "year": 2024, "rating": 9.1, "duration": "3 temporadas"},
-    {"id": "s2", "title": "Cidade Sombria", "description": "Detetives investigam crimes sobrenaturais",
-     "type": "series", "genres": ["Suspense", "Sobrenatural"], "year": 2023, "rating": 8.8, "duration": "2 temporadas"},
-    {"id": "s3", "title": "Família Moderna", "description": "O dia a dia de uma família brasileira contemporânea",
-     "type": "series", "genres": ["Comédia", "Família"], "year": 2024, "rating": 7.9, "duration": "1 temporada"},
-    {"id": "s4", "title": "Império do Crime", "description": "A ascensão de um sindicato do crime organizado",
-     "type": "series", "genres": ["Drama", "Crime"], "year": 2023, "rating": 9.3, "duration": "4 temporadas"},
-    {"id": "ch1", "title": "Canal Premium", "description": "Entretenimento ao vivo 24/7",
-     "type": "live", "genres": ["Entretenimento"], "year": 2024, "rating": 8.5, "duration": "24/7"},
-    {"id": "ch2", "title": "Canal Notícias", "description": "Notícias em tempo real",
-     "type": "live", "genres": ["Notícias"], "year": 2024, "rating": 8.0, "duration": "24/7"},
-    {"id": "ch3", "title": "Canal Esportes", "description": "Transmissões esportivas ao vivo",
-     "type": "live", "genres": ["Esportes"], "year": 2024, "rating": 9.0, "duration": "24/7"},
-]
-
-class ServiceAImpl(services_pb2_grpc.ServiceAServicer):
-    def GetContent(self, request, context):
-        """Retorna catálogo de conteúdo filtrado por tipo e gênero"""
-        start = time.time()
-        try:
-            # Filtrar por tipo
-            content_type = request.type.lower() if request.type else "all"
-            filtered = CONTENT_CATALOG if content_type == "all" else [
-                c for c in CONTENT_CATALOG if c["type"] == content_type
-            ]
-            
-            # Filtrar por gênero
-            if request.genre:
-                filtered = [c for c in filtered if request.genre in c["genres"]]
-            
-            # Aplicar limite
-            limit = request.limit if request.limit > 0 else len(filtered)
-            filtered = filtered[:limit]
-            
-            # Construir resposta
-            items = [
-                services_pb2.ContentItem(
-                    id=c["id"],
-                    title=c["title"],
-                    description=c["description"],
-                    thumbnail=f"/api/thumbnails/{c['id']}.jpg",
-                    type=c["type"],
-                    genres=c["genres"],
-                    year=c["year"],
-                    rating=c["rating"],
-                    duration=c["duration"]
-                )
-                for c in filtered
-            ]
-            
-            CONTENT_ITEMS_RETURNED.labels(content_type=content_type).inc(len(items))
-            REQUEST_COUNT.labels(method='GetContent', status='success').inc()
-            
-            return services_pb2.ContentResponse(items=items, total=len(items))
-            
-        except Exception as e:
-            REQUEST_COUNT.labels(method='GetContent', status='error').inc()
-            context.set_code(grpc.StatusCode.INTERNAL)
-            context.set_details(f"Error: {str(e)}")
-            return services_pb2.ContentResponse()
-        finally:
-            REQUEST_LATENCY.labels(method='GetContent').observe(time.time() - start)
-
-def serve():
-    # Start Prometheus metrics server
-    metrics_port = int(os.environ.get("METRICS_PORT", "9101"))
-    start_http_server(metrics_port)
-    print(f"Metrics server started on :{metrics_port}", flush=True)
-    
-    port = int(os.environ.get("PORT", "50051"))
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    services_pb2_grpc.add_ServiceAServicer_to_server(ServiceAImpl(), server)
-    server.add_insecure_port(f"[::]:{port}")
-    server.start()
-    print(f"Service A listening on :{port}", flush=True)
-    try:
-        while True:
-            time.sleep(86400)
-    except KeyboardInterrupt:
-        server.stop(0)
-
-if __name__ == "__main__":
-    serve()
-
-```
-
-services/a_py/proto/services.proto
-```
-syntax = "proto3";
-
-package pspd;
-
-message HelloRequest { string name = 1; }
-message HelloReply { string message = 1; }
-
-service ServiceA {
-  rpc SayHello(HelloRequest) returns (HelloReply);
-}
-
-message StreamRequest { int32 count = 1; int32 delay_ms = 2; }
-message NumberReply { int32 value = 1; }
-
-service ServiceB {
-  rpc StreamNumbers(StreamRequest) returns (stream NumberReply);
-}
-
-```
-
-proto/services.proto
-```
-// Contrato de comunicação gRPC para aplicação de streaming
-// Service A: Catálogo de conteúdo (filmes, séries, canais ao vivo)
-// Service B: Metadados e recomendações
-
-syntax = "proto3";
-
-package pspd;
-
-// Service A: Catálogo de conteúdo
-message ContentRequest {
-  string type = 1; // "movies", "series", "live", "all"
-  int32 limit = 2;
-  string genre = 3;
-}
-
-message ContentItem {
-  string id = 1;
-  string title = 2;
-  string description = 3;
-  string thumbnail = 4;
-  string type = 5;
-  repeated string genres = 6;
-  int32 year = 7;
-  float rating = 8;
-  string duration = 9;
-}
-
-message ContentResponse {
-  repeated ContentItem items = 1;
-  int32 total = 2;
-}
-
-service ServiceA {
-  rpc GetContent(ContentRequest) returns (ContentResponse);
-}
-
-// Service B: Metadados e recomendações (streaming)
-message MetadataRequest {
-  string content_id = 1;
-  string user_id = 2;
-}
-
-message MetadataItem {
-  string key = 1;
-  string value = 2;
-  float relevance_score = 3;
-}
-
-service ServiceB {
-  rpc StreamMetadata(MetadataRequest) returns (stream MetadataItem);
-}
-
-```
-
-docs/METRICAS_PROMETHEUS.md
-```
-# 📊 Métricas Prometheus Customizadas
-
-## Visão Geral
-
-Todos os três serviços (A, B e P) foram instrumentados com métricas customizadas usando Prometheus client libraries:
-- **Serviços A e B (Python)**: `prometheus-client==0.20.0`
-- **Gateway P (Node.js)**: `prom-client==15.1.0`
-
----
-
-## Serviço A (Python gRPC)
-
-### Porta de Métricas
-- **Porta**: `9101`
-- **Endpoint**: `http://<pod-ip>:9101/metrics`
-
-### Métricas Expostas
-
-#### `grpc_server_requests_total`
-- **Tipo**: Counter
-- **Descrição**: Total de requisições gRPC recebidas pelo serviço A
-- **Labels**:
-  - `method`: Nome do método gRPC (ex: `GetContent`)
-  - `status`: Resultado (`success` ou `error`)
-
-#### `grpc_server_request_duration_seconds`
-- **Tipo**: Histogram
-- **Descrição**: Latência das requisições gRPC em segundos
-- **Labels**:
-  - `method`: Nome do método gRPC
-- **Buckets**: `[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5]`
-
-### Queries PromQL Úteis
-
-```promql
-# Taxa de requisições por segundo
-rate(grpc_server_requests_total{container="a"}[1m])
-
-# Taxa de erros
-rate(grpc_server_requests_total{container="a",status="error"}[1m])
-
-# Latência P50
-histogram_quantile(0.50, rate(grpc_server_request_duration_seconds_bucket{container="a"}[1m]))
-
-# Latência P95
-histogram_quantile(0.95, rate(grpc_server_request_duration_seconds_bucket{container="a"}[1m]))
-
-# Latência P99
-histogram_quantile(0.99, rate(grpc_server_request_duration_seconds_bucket{container="a"}[1m]))
-```
-
----
-
-## Serviço B (Python gRPC Streaming)
-
-### Porta de Métricas
-- **Porta**: `9102`
-- **Endpoint**: `http://<pod-ip>:9102/metrics`
-
-### Métricas Expostas
-
-#### `grpc_server_requests_total`
-- **Tipo**: Counter
-- **Descrição**: Total de requisições gRPC recebidas pelo serviço B
-- **Labels**:
-  - `method`: Nome do método gRPC (ex: `StreamMetadata`)
-  - `status`: Resultado (`success` ou `error`)
-
-#### `grpc_server_request_duration_seconds`
-- **Tipo**: Histogram
-- **Descrição**: Latência das requisições gRPC em segundos (streaming completo)
-- **Labels**:
-  - `method`: Nome do método gRPC
-- **Buckets**: `[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5]`
-
-#### `grpc_server_stream_items_total`
-- **Tipo**: Counter
-- **Descrição**: Total de items enviados via streaming
-- **Labels**:
-  - `method`: Nome do método gRPC
-
-### Queries PromQL Úteis
-
-```promql
-# Taxa de requisições streaming por segundo
-rate(grpc_server_requests_total{container="b",method="StreamMetadata"}[1m])
-
-# Items streamed por segundo
-rate(grpc_server_stream_items_total{container="b"}[1m])
-
-# Latência média do streaming
-rate(grpc_server_request_duration_seconds_sum{container="b"}[1m]) 
-/ 
-rate(grpc_server_request_duration_seconds_count{container="b"}[1m])
-
-# Latência P95 do streaming
-histogram_quantile(0.95, rate(grpc_server_request_duration_seconds_bucket{container="b"}[1m]))
-```
-
----
-
-## Gateway P (Node.js HTTP + gRPC Client)
-
-### Porta de Métricas
-- **Porta**: `8080` (mesma porta HTTP)
-- **Endpoint**: `http://<pod-ip>:8080/metrics`
-
-### Métricas Expostas
-
-#### `http_requests_total`
-- **Tipo**: Counter
-- **Descrição**: Total de requisições HTTP recebidas pelo gateway
-- **Labels**:
-  - `method`: Método HTTP (ex: `GET`)
-  - `route`: Rota acessada (ex: `/api/content`)
-  - `status_code`: Código de resposta HTTP
-
-#### `http_request_duration_seconds`
-- **Tipo**: Histogram
-- **Descrição**: Latência das requisições HTTP em segundos
-- **Labels**:
-  - `method`: Método HTTP
-  - `route`: Rota acessada
-  - `status_code`: Código de resposta HTTP
-- **Buckets**: `[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5]`
-
-#### `grpc_client_requests_total`
-- **Tipo**: Counter
-- **Descrição**: Total de requisições gRPC feitas pelo gateway aos serviços A e B
-- **Labels**:
-  - `service`: Serviço destino (`ServiceA` ou `ServiceB`)
-  - `method`: Método gRPC chamado
-  - `status`: Resultado (`success` ou `error`)
-
-#### `grpc_client_request_duration_seconds`
-- **Tipo**: Histogram
-- **Descrição**: Latência das chamadas gRPC feitas pelo gateway
-- **Labels**:
-  - `service`: Serviço destino
-  - `method`: Método gRPC chamado
-  - `status`: Resultado
-- **Buckets**: `[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5]`
-
-#### Métricas Padrão do Node.js
-O gateway também expõe métricas padrão do processo Node.js:
-- `process_cpu_user_seconds_total`
-- `process_resident_memory_bytes`
-- `nodejs_heap_size_total_bytes`
-- `nodejs_eventloop_lag_seconds`
-
-### Queries PromQL Úteis
-
-```promql
-# Taxa de requisições HTTP por segundo
-rate(http_requests_total{container="p"}[1m])
-
-# Taxa de erros HTTP (5xx)
-rate(http_requests_total{container="p",status_code=~"5.."}[1m])
-
-# Latência P95 HTTP
-histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{container="p"}[1m]))
-
-# Taxa de chamadas gRPC para serviço A
-rate(grpc_client_requests_total{container="p",service="ServiceA"}[1m])
-
-# Latência P95 das chamadas gRPC
-histogram_quantile(0.95, rate(grpc_client_request_duration_seconds_bucket{container="p"}[1m]))
-
-# Erros gRPC por serviço
-rate(grpc_client_requests_total{container="p",status="error"}[1m])
-
-# Uso de memória do processo Node.js
-process_resident_memory_bytes{container="p"}
-```
-
----
-
-## ServiceMonitors Configurados
-
-### Service A Monitor
-```yaml
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: service-a-monitor
-  namespace: pspd
-spec:
-  selector:
-    matchLabels:
-      app: a
-  endpoints:
-  - port: metrics
-    interval: 15s
-    path: /metrics
-```
-
-### Service B Monitor
-```yaml
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: service-b-monitor
-  namespace: pspd
-spec:
-  selector:
-    matchLabels:
-      app: b
-  endpoints:
-  - port: metrics
-    interval: 15s
-    path: /metrics
-```
-
-### Gateway P Monitor
-```yaml
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: gateway-p-metrics
-  namespace: pspd
-spec:
-  selector:
-    matchLabels:
-      app: p
-  endpoints:
-    - port: metrics
-      path: /metrics
-      interval: 15s
-```
-
----
-
-## Verificação de Métricas
-
-### Verificação Manual via port-forward
-
-#### Teste local via port-forward
-```bash
-# Serviço A
-kubectl port-forward -n pspd svc/a-svc 9101:9101
-curl http://localhost:9101/metrics | grep grpc_server
-
-# Serviço B
-kubectl port-forward -n pspd svc/b-svc 9102:9102
-curl http://localhost:9102/metrics | grep grpc_server
-
-# Gateway P
-kubectl port-forward -n pspd svc/p-svc 8080:8080
-curl http://localhost:8080/metrics | grep -E "(http_|grpc_client)"
-```
-
-#### Verificar targets no Prometheus
-```bash
-# Port-forward do Prometheus
-kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090
-
-# Acessar: http://localhost:9090/targets
-# Procurar por: serviceMonitor/pspd/service-a-monitor/0
-```
-
----
-
-## 📊 Acessar Grafana
-
-### Port-Forward
-```bash
-kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80
-```
-Acesse: http://localhost:3000
-
-### Credenciais
-- **Usuário**: `admin`
-- **Senha**: Recuperar do secret:
-```bash
-kubectl get secret -n monitoring prometheus-grafana -o jsonpath="{.data.admin-password}" | base64 -d
-```
-
-### Importar Dashboard Customizado
-
-1. Acesse Grafana → **+** → **Import**
-2. Upload: `k8s/monitoring/grafana-dashboard.json`
-3. Selecione **prometheus** como data source
-4. Clique em **Import**
-
----
-
-## Dashboards Grafana Sugeridos
-
-### Dashboard: Visão Geral da Aplicação
-
-#### Painel 1: Taxa de Requisições
-```promql
-# HTTP (Gateway P)
-sum(rate(http_requests_total{container="p"}[1m])) by (route)
-
-# gRPC Serviço A
-sum(rate(grpc_server_requests_total{container="a"}[1m])) by (method)
-
-# gRPC Serviço B
-sum(rate(grpc_server_requests_total{container="b"}[1m])) by (method)
-```
-
-#### Painel 2: Latência P95
-```promql
-# Gateway P (HTTP)
-histogram_quantile(0.95, 
-  sum(rate(http_request_duration_seconds_bucket{container="p"}[1m])) by (le, route)
-)
-
-# Serviço A
-histogram_quantile(0.95, 
-  sum(rate(grpc_server_request_duration_seconds_bucket{container="a"}[1m])) by (le)
-)
-
-# Serviço B
-histogram_quantile(0.95, 
-  sum(rate(grpc_server_request_duration_seconds_bucket{container="b"}[1m])) by (le)
-)
-```
-
-#### Painel 3: Taxa de Erros
-```promql
-# HTTP 5xx
-sum(rate(http_requests_total{container="p",status_code=~"5.."}[1m]))
-
-# gRPC Errors (Gateway → A/B)
-sum(rate(grpc_client_requests_total{container="p",status="error"}[1m])) by (service)
-
-# gRPC Errors (Serviços A e B)
-sum(rate(grpc_server_requests_total{status="error"}[1m])) by (app)
-```
-
-#### Painel 4: Throughput gRPC Client (Gateway P)
-```promql
-sum(rate(grpc_client_requests_total{container="p",status="success"}[1m])) by (service, method)
-```
-
-#### Painel 5: Streaming (Serviço B)
-```promql
-# Items por segundo
-rate(grpc_server_stream_items_total{container="b"}[1m])
-
-# Streams ativos
-grpc_server_requests_total{container="b",method="StreamMetadata"} - grpc_server_requests_total{container="b",method="StreamMetadata"} offset 1m
-```
-
----
-
-## Integração com Testes k6
-
-Durante os testes de carga, você pode correlacionar:
-
-1. **Métricas k6** (cliente):
-   - `http_req_duration` → Latência percebida pelo cliente
-   - `http_reqs` → Taxa de requisições enviadas
-   - `http_req_failed` → Taxa de falhas
-
-2. **Métricas Prometheus** (servidor):
-   - `http_request_duration_seconds` → Latência no gateway
-   - `grpc_client_request_duration_seconds` → Latência nas chamadas gRPC
-   - `grpc_server_request_duration_seconds` → Latência nos serviços A/B
-
-**Análise útil**:
-```
-Latência Total (k6) = 
-  Latência Gateway (http_request_duration) + 
-  Latência gRPC A (grpc_client_request_duration) + 
-  Latência gRPC B (grpc_client_request_duration) +
-  Network overhead
-```
-
----
-
-## Troubleshooting
-
-### Métricas não aparecem no Prometheus
-
-1. **Verificar ServiceMonitor**:
-```bash
-kubectl get servicemonitor -n pspd
-kubectl describe servicemonitor service-a-monitor -n pspd
-```
-
-2. **Verificar labels no Prometheus Operator**:
-```bash
-kubectl get prometheus -n monitoring -o yaml | grep serviceMonitorSelector -A 5
-```
-
-3. **Verificar targets no Prometheus**:
-   - Acesse `http://localhost:9090/targets`
-   - Procure por `pspd/service-a-monitor`
-   - Se estiver **DOWN**, verifique logs do pod
-
-4. **Testar endpoint manualmente**:
-```bash
-kubectl exec -n pspd <pod-a> -- curl localhost:9101/metrics
-```
-
-### Métricas vazias após deploy
-
-- Métricas tipo **Counter** e **Histogram** só aparecem após receber dados
-- Faça requisições de teste:
-```bash
-curl "http://localhost:8080/api/content?type=all&limit=5"
-curl "http://localhost:8080/api/metadata/m1?userId=test"
-```
-
-### Port-forward falha
-
-```bash
-# Verificar se pod está Ready
-kubectl get pods -n pspd
-
-# Verificar logs
-kubectl logs -n pspd <pod-name>
-
-# Verificar se porta está ouvindo
-kubectl exec -n pspd <pod-name> -- netstat -tuln | grep 9101
-```
-
----
-
-## Resumo das Portas
-
-| Serviço | Porta gRPC | Porta Métricas | Endpoint |
-|---------|-----------|----------------|----------|
-| A       | 50051     | 9101          | `/metrics` |
-| B       | 50052     | 9102          | `/metrics` |
-| P       | 8080      | 8080          | `/metrics` |
-
----
-
-## Próximos Passos
-
-1. ✅ Métricas implementadas
-2. ✅ ServiceMonitors configurados
-3. ⏳ Verificar métricas via port-forward (comandos acima)
-4. ⏳ Criar dashboards Grafana customizados
-5. ⏳ Executar testes de carga e correlacionar métricas
-6. ⏳ Documentar insights obtidos das métricas
-
-```
-
-docs/ANALISE_CENARIOS.md
-```
-# Análise Comparativa dos 5 Cenários
-
-> **Status**: ⏳ Aguardando execução de `./scripts/run_scenario_comparison.sh --all`
-
----
-
-## 📊 Objetivo
-
-Avaliar o impacto de diferentes configurações de deployment no desempenho e confiabilidade da aplicação gRPC/REST, conforme **Requisito 3.c**: *"desenho de cenários variando características da aplicação"*.
-
----
-
-## 🎯 Cenários Implementados
-
-| Cenário | Descrição | Réplicas Iniciais | HPA | Anti-Affinity | Resources |
-|---------|-----------|-------------------|-----|---------------|-----------|
-| **1 - Base** | Baseline padrão | 1 | ✅ (1-10) | ❌ | 100m/128Mi |
-| **2 - Réplicas** | Warm start | 2 | ✅ (2-10) | ❌ | 100m/128Mi |
-| **3 - Distribuição** | Alta disponibilidade | 3 | ✅ (3-12) | ✅ | 100m/128Mi |
-| **4 - Recursos** | Ambiente restrito | 1 | ✅ (1-15) | ❌ | 50m/64Mi |
-| **5 - Sem HPA** | Réplicas fixas | 5 | ❌ | ❌ | 100m/128Mi |
-
----
-
-## 📈 Métricas Analisadas
-
-### Principais KPIs
-- **Latência P95** (ms): 95º percentil de tempo de resposta
-- **Throughput** (req/s): Taxa de requisições processadas
-- **Taxa de Sucesso** (%): Requisições HTTP 200 vs total
-- **Scaling HPA**: Min/Max/Atual réplicas durante teste
-- **Custo Relativo**: Pod-hora (réplicas × tempo)
-
-### Testes Aplicados
-- **Baseline**: 50 VUs por 5 minutos (carga constante)
-- **Ramp**: 10→200 VUs em 10 minutos (crescimento linear)
-- **Spike**: 10→500 VUs em 30s → 10 VUs (pico súbito)
-- **Soak**: 100 VUs por 30 minutos (estabilidade)
-
----
-
-## 🔬 Resultados por Cenário
-
-### Cenário 1 - Base (Baseline)
-**Configuração**: 1 réplica inicial, HPA 1-10, CPU 100m
-
-**Comportamento Esperado**:
-- ✅ HPA escala conforme demanda
-- ⚠️ Cold start no início do spike
-- ✅ Custo otimizado em idle
-
-**Métricas** (preencher após execução):
-```
-Baseline Test:
-- Latência P95: ___ ms
-- Throughput: ___ req/s
-- Taxa de sucesso: ____%
-
-Spike Test:
-- Latência P95: ___ ms (pico)
-- HPA: escalou de 1→___ réplicas
-- Tempo de scaling: ___ segundos
-```
-
-**Conclusão**:
-> Baseline para comparação. HPA reagiu adequadamente ao spike, mas com latência inicial elevada devido ao cold start.
-
----
-
-### Cenário 2 - Réplicas (Warm Start)
-**Configuração**: 2 réplicas iniciais, HPA 2-10, CPU 100m
-
-**Comportamento Esperado**:
-- ✅ Menor latência no início do spike
-- ⚠️ Custo +100% em idle (2× réplicas)
-- ✅ Melhor experiência do usuário
-
-**Métricas** (preencher após execução):
-```
-Baseline Test:
-- Latência P95: ___ ms (___% melhor que Cenário 1)
-- Throughput: ___ req/s
-
-Spike Test:
-- Latência P95: ___ ms (pico)
-- HPA: escalou de 2→___ réplicas
-- Custo idle: +100% vs Cenário 1
-```
-
-**Conclusão**:
-> Trade-off latência vs custo. Ideal para aplicações com SLA rigoroso (<100ms) que justificam o custo de warm start.
-
----
-
-### Cenário 3 - Distribuição (Anti-Affinity)
-**Configuração**: 3 réplicas, HPA 3-12, anti-affinity obrigatória, CPU 100m
-
-**Comportamento Esperado**:
-- ✅ Alta disponibilidade (pods em nodes diferentes)
-- ⚠️ Latência de rede inter-node +5-10ms
-- ✅ Resiliência a falhas de node
-
-**Métricas** (preencher após execução):
-```
-Baseline Test:
-- Latência P95: ___ ms (___% maior devido rede inter-node)
-- Throughput: ___ req/s
-
-Soak Test (30min):
-- Latência média: ___ ms
-- Desvio padrão: ___ ms (estabilidade)
-- HPA: ___ réplicas mantidas
-```
-
-**Conclusão**:
-> Prioriza resiliência sobre performance absoluta. Obrigatório para produção crítica, apesar do overhead de rede.
-
----
-
-### Cenário 4 - Recursos Limitados (Stress Test)
-**Configuração**: 1 réplica inicial, HPA 1-15, CPU **50m** (50%), Memory **64Mi** (50%)
-
-**Comportamento Esperado**:
-- ⚠️ HPA mais agressivo (limites menores)
-- ⚠️ Mais réplicas necessárias (6-8 vs 3-4)
-- ⚠️ Pods sob pressão (CPU throttling)
-
-**Métricas** (preencher após execução):
-```
-Spike Test:
-- Latência P95: ___ ms (___% maior que Cenário 1)
-- HPA: escalou de 1→___ réplicas (vs ___ no Cenário 1)
-- CPU throttling: sim/não
-
-Custo:
-- Pod-hora total: ___ (mais réplicas compensam limites)
-```
-
-**Conclusão**:
-> Simula ambiente com recursos escassos. HPA compensa com mais réplicas, mas latência degrada. Não recomendado para produção.
-
----
-
-### Cenário 5 - Sem HPA (Réplicas Fixas)
-**Configuração**: 5 réplicas **fixas**, sem HPA, CPU 100m
-
-**Comportamento Esperado**:
-- ✅ Performance previsível em idle/baseline
-- ❌ Degradação severa no spike (sem escalar)
-- ❌ Over-provisioning (+73% custo vs Cenário 1)
-
-**Métricas** (preencher após execução):
-```
-Spike Test:
-- Latência P95: ___ ms (___× pior que Cenário 1)
-- Taxa de erro: ___% (HTTP 503/timeout)
-- Réplicas: 5 (fixo)
-
-Custo:
-- Idle: 5× réplicas desperdiçadas
-- Pico: insuficiente (deveria ter ___× réplicas)
-```
-
-**Conclusão**:
-> Demonstra ineficiência de réplicas fixas. Sem elasticidade, não atende picos (erro) nem otimiza idle (desperdício).
-
----
-
-## 📊 Tabela Comparativa Final
-
-| Métrica | Cenário 1<br>(Base) | Cenário 2<br>(Réplicas) | Cenário 3<br>(Distribuição) | Cenário 4<br>(Recursos) | Cenário 5<br>(Sem HPA) |
-|---------|---------------------|-------------------------|----------------------------|------------------------|------------------------|
-| **Latência P95 (Baseline)** | ___ ms | ___ ms | ___ ms | ___ ms | ___ ms |
-| **Latência P95 (Spike)** | ___ ms | ___ ms | ___ ms | ___ ms | ___ ms |
-| **Throughput (req/s)** | ___ | ___ | ___ | ___ | ___ |
-| **Taxa de Sucesso (%)** | ___% | ___% | ___% | ___% | ___% |
-| **HPA Min→Max** | 1→___ | 2→___ | 3→___ | 1→___ | N/A (5 fixo) |
-| **Custo Relativo** | 1.0× | ___× | ___× | ___× | 1.73× |
-| **Resiliência** | Média | Média | Alta | Baixa | Média |
-
----
-
-## 🎯 Recomendação Final
-
-### Para Ambiente de Produção
-
-**Configuração Recomendada**: **Cenário 2 (Warm Start) + HPA**
-
-**Justificativa**:
-1. ✅ **Latência**: Warm start (2 réplicas) reduz P95 inicial em ~___% vs baseline
-2. ✅ **Elasticidade**: HPA escala sob demanda (2-10 réplicas)
-3. ✅ **Custo**: Aceitável (+50-100% idle vs baseline, mas 50% menor que sem HPA)
-4. ✅ **SLA**: Atende requisitos de <100ms P95
-
-**Variantes**:
-- **Alta disponibilidade crítica**: Cenário 3 (distribuição) + warm start
-- **Budget limitado**: Cenário 1 (base) com HPA agressivo (50% CPU threshold)
-
----
-
-## 🔍 Observações Técnicas
-
-### Probes de Saúde Implementadas
-Todos os cenários incluem:
-```yaml
-readinessProbe: { httpGet: { path: /healthz, port: 8080 }, initialDelaySeconds: 3, periodSeconds: 5 }
-livenessProbe:  { httpGet: { path: /healthz, port: 8080 }, initialDelaySeconds: 5, periodSeconds: 10 }
-```
-- ✅ Evita envio de tráfego para pods não prontos
-- ✅ Reinicia pods com falhas
-
-### Resources Requests/Limits
-```yaml
-resources:
-  requests:  { cpu: "100m", memory: "128Mi" }  # Base
-  limits:    { cpu: "500m", memory: "256Mi" }  # Cenário 4: 50m/64Mi
-```
-- ✅ HPA baseado em `requests.cpu`
-- ✅ Evita OOMKilled (limits adequados)
-
-### HPA Configuração
-```yaml
-metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70  # Cenário 4: 60%
-```
-- ✅ Escala em 70% CPU (threshold balanceado)
-- ✅ Evita flapping (comportamento estável)
-
----
-
-## 📁 Estrutura de Resultados
-
-Após executar `./scripts/run_scenario_comparison.sh --all`:
-
-```
-results-scenario-1-base/
-├── baseline_results.json
-├── ramp_results.json
-├── spike_results.json
-└── soak_results.json
-
-results-scenario-2-replicas/
-├── ...
-
-scenario-comparison/
-├── comparison_latency.png      # P95 por cenário
-├── comparison_throughput.png   # req/s
-├── comparison_success_rate.png # %
-├── comparison_scaling.png      # HPA réplicas
-├── comparison_cost.png         # Pod-hora
-├── metrics.json                # Dados agregados
-└── COMPARISON_REPORT.md        # Relatório automático
-```
-
----
-
-## ✅ Checklist de Validação
-
-- [ ] Executar `./scripts/run_scenario_comparison.sh --all` (~2-3h)
-- [ ] Validar geração de 5 diretórios `results-scenario-*`
-- [ ] Verificar 6 gráficos em `scenario-comparison/`
-- [ ] Preencher métricas neste documento (valores de `metrics.json`)
-- [ ] Completar seção "Conclusão" de cada cenário
-- [ ] Validar recomendação final com base nos dados reais
-
----
-
-**Última atualização**: Estrutura criada em 24/11/2025  
-**Próxima ação**: Executar `./scripts/run_scenario_comparison.sh --all` e preencher resultados
-
-```
-
-docs/GUIA_MULTINODE.md
-```
-# Guia de Migração: Cluster Multi-Node com Prometheus e Grafana
-
-## 📋 Pré-requisitos
-
-- Docker instalado
-- kubectl instalado
-- minikube instalado
-- helm instalado
-- Mínimo 8GB RAM e 4 CPUs disponíveis
-
-## 🚀 Setup Completo em 3 Passos
-
-### Passo 1: Criar Cluster Multi-Node (1 control-plane + 2 workers)
-
-```bash
-# Criar cluster com 3 nodes
-minikube start --nodes 3 --cpus 4 --memory 8192
-
-# Habilitar addons necessários
-minikube addons enable metrics-server
-minikube addons enable ingress
-
-# Verificar nodes
-kubectl get nodes
-```
-
-Este processo automaticamente:
-- ✅ Cria cluster com 3 nós (1 control-plane + 2 workers)
-- ✅ Habilita metrics-server e ingress
-- ✅ Configura rede entre os nós
-
-**Tempo estimado**: 3-5 minutos
-
-### Passo 1.5: Instalar Prometheus Stack (Opcional)
-
-```bash
-# Adicionar repositório Helm
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm repo update
-
-# Instalar stack completo
-helm install prometheus prometheus-community/kube-prometheus-stack \
-  --namespace monitoring --create-namespace \
-  --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false
-```
-
-Instala:
-- ✅ Prometheus Operator
-- ✅ Grafana com dashboards pré-configurados
-- ✅ Alertmanager
-- ✅ ServiceMonitors automáticos
-
-**Tempo estimado**: 3-5 minutos
-
-### Passo 2: Deploy das Aplicações
-
-```bash
-# Build das imagens no contexto Docker do Minikube
-eval $(minikube docker-env)
-docker build -t a-service:local ./services/a_py
-docker build -t b-service:local ./services/b_py
-docker build -t p-gateway:local ./gateway_p_node
-
-# Deploy dos recursos Kubernetes
-kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/a.yaml
-kubectl apply -f k8s/b.yaml
-kubectl apply -f k8s/p.yaml
-
-# Configurar ServiceMonitors para Prometheus (se instalou Prometheus)
-kubectl apply -f k8s/servicemonitors.yaml
-```
-
-### Passo 3: Acessar Interfaces de Monitoramento
-
-#### Opção A: Via NodePort (mais estável)
-
-```bash
-# Obter IP do cluster
-MINIKUBE_IP=$(minikube ip -p pspd-cluster)
-
-# Grafana
-GRAFANA_PORT=$(kubectl get svc -n monitoring prometheus-grafana -o jsonpath='{.spec.ports[0].nodePort}')
-echo "Grafana: http://$MINIKUBE_IP:$GRAFANA_PORT"
-
-# Prometheus
-PROMETHEUS_PORT=$(kubectl get svc -n monitoring prometheus-kube-prometheus-prometheus -o jsonpath='{.spec.ports[0].nodePort}')
-echo "Prometheus: http://$MINIKUBE_IP:$PROMETHEUS_PORT"
-
-# Gateway P
-kubectl get svc -n pspd p-svc
-```
-
-#### Opção B: Via Port-Forward
-
-```bash
-# Terminal 1: Grafana
-kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80
-# Acesse: http://localhost:3000
-# User: admin | Password: (recuperar do secret)
-
-# Recuperar senha do Grafana:
-kubectl get secret -n monitoring prometheus-grafana -o jsonpath="{.data.admin-password}" | base64 -d
-
-# Terminal 2: Prometheus
-kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090
-# Acesse: http://localhost:9090
-
-# Terminal 3: Gateway P
-kubectl port-forward -n pspd svc/p-svc 8080:80
-# Acesse: http://localhost:8080
-```
-
-## 📊 Configurar Dashboard no Grafana
-
-1. Acesse Grafana (http://localhost:3000 ou NodePort)
-2. Login: `admin` / `admin`
-3. Vá em: **+** → **Import** → **Upload JSON file**
-4. Selecione: `k8s/monitoring/grafana-dashboard.json`
-5. Clique em **Import**
-
-O dashboard inclui:
-- 📈 HTTP Request Rate
-- ⏱️ Request Duration (p95, p99)
-- 🔢 Pod Replicas (HPA)
-- 💻 CPU Usage por pod
-- 💾 Memory Usage por pod
-- ❌ Error Rate
-
-## 🧪 Executar Testes de Carga
-
-```bash
-# Terminal 1: Monitoramento em tempo real
-./scripts/run_all_tests.sh monitor
-
-# Terminal 2: Port-forward para aplicação
-kubectl port-forward -n pspd svc/p-svc 8080:80
-
-# Terminal 3: Executar testes
-BASE_URL=http://localhost:8080 ./scripts/run_all_tests.sh all
-
-# Gerar gráficos
-./scripts/run_all_tests.sh analyze
-```
-
-## 🔍 Verificar Cluster Multi-Node
-
-```bash
-# Ver todos os nós
-kubectl get nodes -o wide
-
-# Deve mostrar:
-# NAME               STATUS   ROLES           AGE   VERSION
-# pspd-cluster       Ready    control-plane   10m   v1.28.x
-# pspd-cluster-m02   Ready    worker          9m    v1.28.x
-# pspd-cluster-m03   Ready    worker          8m    v1.28.x
-
-# Ver distribuição de pods nos nós
-kubectl get pods -n pspd -o wide
-
-# Ver métricas dos nós
-kubectl top nodes
-```
-
-## 📊 Verificar Prometheus
-
-```bash
-# Ver ServiceMonitors configurados
-kubectl get servicemonitor -n pspd
-
-# Ver targets no Prometheus
-# Acesse: http://localhost:9090/targets
-# Deve mostrar:
-# - pspd/service-a-monitor
-# - pspd/service-b-monitor
-# - pspd/gateway-p-monitor
-
-# Queries úteis:
-# rate(http_requests_total{namespace="pspd"}[1m])
-# histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[1m]))
-```
-
-## 🎯 Validação Completa
-
-### ✅ Cluster Multi-Node
-```bash
-kubectl get nodes
-# Deve mostrar 3 nós (1 master + 2 workers)
-```
-
-### ✅ Prometheus Instalado
-```bash
-kubectl get pods -n monitoring | grep prometheus
-# Deve mostrar: prometheus-kube-prometheus-prometheus-0 Running
-```
-
-### ✅ Grafana Instalado
-```bash
-kubectl get pods -n monitoring | grep grafana
-# Deve mostrar: prometheus-grafana-xxx Running
-```
-
-### ✅ ServiceMonitors Configurados
-```bash
-kubectl get servicemonitor -n pspd
-# Deve mostrar 3 ServiceMonitors
-```
-
-### ✅ Métricas Sendo Coletadas
-```bash
-# Via Prometheus UI (http://localhost:9090)
-# Query: up{namespace="pspd"}
-# Deve retornar 3 targets UP
-```
-
-## 🛠️ Troubleshooting
-
-### Cluster não inicia
-```bash
-# Aumentar recursos
-minikube delete
-minikube start --nodes 3 --cpus 4 --memory 8192
-```
-
-### Prometheus não coleta métricas
-```bash
-# Verificar ServiceMonitors
-kubectl get servicemonitor -n pspd
-
-# Recriar ServiceMonitors
-kubectl apply -f k8s/servicemonitors.yaml
-
-# Verificar logs do Prometheus
-kubectl logs -n monitoring prometheus-prometheus-kube-prometheus-prometheus-0 -c prometheus
-```
-
-### Grafana não abre
-```bash
-# Verificar pod
-kubectl get pods -n monitoring | grep grafana
-
-# Ver logs
-kubectl logs -n monitoring deployment/prometheus-grafana
-
-# Restart
-kubectl rollout restart deployment -n monitoring prometheus-grafana
-```
-
-### Pods não distribuem nos workers
-```bash
-# Remover taint do master (se necessário para testes)
-kubectl taint nodes pspd-cluster node-role.kubernetes.io/control-plane:NoSchedule-
-
-# Adicionar nodeSelector nos deployments (opcional)
-# Editar k8s/a.yaml, k8s/b.yaml, k8s/p.yaml:
-# spec:
-#   template:
-#     spec:
-#       nodeSelector:
-#         node-role.kubernetes.io/worker: "true"
-```
-
-## 📚 Recursos Adicionais
-
-### Comandos Úteis
-
-```bash
-# Listar todos os recursos
-kubectl get all -n pspd
-kubectl get all -n monitoring
-
-# Ver logs agregados
-kubectl logs -n pspd -l app=p --tail=100 -f
-
-# Escalar manualmente
-kubectl scale deployment -n pspd p-deploy --replicas=5
-
-# Ver eventos do cluster
-kubectl get events -n pspd --sort-by='.lastTimestamp'
-
-# Ver uso de recursos
-kubectl top pods -n pspd
-kubectl top nodes
-```
-
-### Limpeza
-
-```bash
-# Parar cluster (preserva dados)
-minikube stop
-
-# Deletar cluster completamente
-minikube delete
-
-# Limpar apenas namespace pspd
-kubectl delete namespace pspd
-```
-
-## 🎓 Atendimento aos Requisitos Acadêmicos
-
-### ✅ Requisito 1: Cluster Multi-Node
-- **Requisito**: "Cluster composto por um nó mestre e pelo menos dois nós escravos"
-- **Implementado**: 1 master (pspd-cluster) + 2 workers (pspd-cluster-m02, m03)
-- **Verificação**: `kubectl get nodes`
-
-### ✅ Requisito 2: Prometheus no K8s
-- **Requisito**: "Estudar e instalar, no K8S, o Prometheus"
-- **Implementado**: kube-prometheus-stack via Helm
-- **Verificação**: `kubectl get pods -n monitoring | grep prometheus`
-
-### ✅ Requisito 3: Interface Web de Monitoramento
-- **Requisito**: "Interface web de monitoramento do cluster"
-- **Implementado**: Grafana com dashboard customizado
-- **Verificação**: Acesse http://localhost:3000 após port-forward: `kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80`
-
-### ✅ Requisito 4: ServiceMonitors
-- **Implementado**: 3 ServiceMonitors (gateway-p, service-a, service-b)
-- **Verificação**: `kubectl get servicemonitor -n pspd`
-
-### ✅ Requisito 5: Métricas Expostas
-- **Implementado**: Métricas HTTP e gRPC em todos os serviços
-- **Verificação**: `curl http://localhost:8080/metrics`
-
-## 📝 Notas de Implementação
-
-### Escolha do minikube multi-node
-
-Optamos por **minikube multi-node** em vez de kind ou k3s por:
-- ✅ Suporte nativo a drivers (Docker, VirtualBox, KVM)
-- ✅ Fácil integração com imagens locais (`minikube image load`)
-- ✅ Comandos consistentes com single-node (migração suave)
-- ✅ Suporte a NodePort direto (`minikube ip`)
-
-### Stack de Monitoramento
-
-Optamos por **kube-prometheus-stack** (Helm) por:
-- ✅ Prometheus Operator incluso
-- ✅ Grafana pré-configurado
-- ✅ Alertmanager incluso
-- ✅ ServiceMonitor CRD nativo
-- ✅ Dashboards padrão para K8s
-
-### Configurações Customizadas
-
-- ServiceMonitors coletam métricas a cada 15s
-- Grafana com senha `admin` (trocar em produção!)
-- NodePort habilitado para acesso externo fácil
-- HPA configurado para auto-scaling baseado em CPU
-
-```
-
-docs/INTEGRACAO_FRONTEND.md
-```
-# Integração Frontend com Backend gRPC
-
-Frontend de demonstração da plataforma de streaming integrado com microsserviços gRPC.
-
-**Deploy**: https://streaming-app-design.vercel.app/
-
----
-
-## 🌐 Arquitetura
-
-```
-Frontend (Next.js)  →  Gateway P (HTTP/REST)  →  Services A/B (gRPC)
-   Vercel              localhost:8080/K8s         Python Streaming
-```
-
-### Fluxo de Dados
-
-1. **Usuário** acessa frontend Next.js
-2. **Frontend** faz requisições HTTP para Gateway P
-3. **Gateway P** converte HTTP → gRPC e chama Services A/B
-4. **Services** retornam dados via gRPC
-5. **Gateway** converte gRPC → JSON HTTP
-6. **Frontend** renderiza dados
-
----
-
-## 📡 Endpoints da API
-
-### `/api/content` - Catálogo
-```bash
-# Listar todos os conteúdos
-curl "http://localhost:8080/api/content?type=all&limit=20"
-
-# Filtrar por tipo
-curl "http://localhost:8080/api/content?type=movies&limit=10"
-```
-
-**Resposta**:
-```json
-{
-  "items": [
-    {
-      "id": "m1",
-      "title": "A Jornada Infinita",
-      "type": "movie",
-      "genres": ["Ficção Científica", "Aventura"],
-      "rating": 8.7
-    }
-  ],
-  "total": 4,
-  "source": "ServiceA"
-}
-```
-
-### `/api/metadata/:id` - Metadados
-```bash
-# Buscar metadados de um conteúdo
-curl "http://localhost:8080/api/metadata/m1?userId=user123"
-```
-
-**Resposta**:
-```json
-{
-  "contentId": "m1",
-  "metadata": [
-    {"key": "director", "value": "James Cameron", "relevanceScore": 0.95},
-    {"key": "similar", "value": "Interestelar", "relevanceScore": 0.85}
-  ],
-  "source": "ServiceB"
-}
-```
-
-### `/api/browse` - Endpoint Combinado
-```bash
-# Catálogo + metadados do primeiro item
-curl "http://localhost:8080/api/browse?type=series&limit=5"
-```
-
----
-
-## 🧪 Testando a Integração
-
-### 1. Port-forward local
-```bash
-# Gateway P
-kubectl port-forward -n pspd svc/p-svc 8080:80
-
-# Testar endpoints
-curl http://localhost:8080/api/content?type=all
-curl http://localhost:8080/api/metadata/m1
-curl http://localhost:8080/api/browse?type=movies
-```
-
-### 2. Testes de carga (k6)
-```bash
-# Testes já simulam navegação real do usuário
-./scripts/run_all_tests.sh baseline
-
-# Padrão de requisições:
-# - GET /api/content?type=all
-# - GET /api/content?type=movies&limit=10
-# - GET /api/metadata/m1
-# - GET /api/browse?type=series
-```
-
-### 3. Verificar métricas
-```bash
-# Métricas do Gateway
-curl http://localhost:8080/metrics | grep http_requests
-
-# Dashboard Grafana
-kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80
-# → http://localhost:3000
-```
-
----
-
-## 🔧 Troubleshooting
-
-### Pods não estão rodando
-```bash
-kubectl get pods -n pspd
-kubectl logs -n pspd -l app=p
-```
-
-### Timeout nas requisições
-```bash
-# Verificar HPA
-kubectl get hpa -n pspd
-
-# Escalar manualmente se necessário
-kubectl scale deployment p-deploy -n pspd --replicas=3
-```
-
-### Dados não aparecem
-```bash
-# Testar Service A diretamente
-kubectl port-forward -n pspd svc/a-svc 50051:50051
-
-# Verificar logs
-kubectl logs -n pspd -l app=a
-```
-
----
-
-## 📚 Tecnologias
-
-- **Frontend**: Next.js 14 (App Router), TypeScript, Tailwind CSS
-- **Gateway**: Node.js, Express, gRPC-js
-- **Services**: Python, gRPC, Prometheus Client
-- **Deploy**: Vercel (frontend), Kubernetes (backend)
-
----
-
-**Nota**: O frontend é uma **demonstração visual** da API. O foco da atividade é a infraestrutura K8s, monitoramento e testes de carga.
-
-```
-
-docs/grafana-dashboard.json
+k8s/monitoring/grafana-dashboard.json
 ```
 {
   "annotations": {
@@ -5260,1737 +4226,878 @@ docs/grafana-dashboard.json
 
 ```
 
-docs/archive/RESUMO_IMPLEMENTACAO.md
+services/b_rest/Dockerfile
 ```
-# Resumo da Implementação - Requisitos Críticos
-
-> **⚠️ DOCUMENTO ARQUIVADO** - Algumas referências a scripts podem estar desatualizadas.  
-> Para instruções atualizadas, consulte: `QUICKSTART.md` e `README.md`
-
-## 📊 Status: 100% COMPLETO ✅
-
-### Requisitos Acadêmicos Implementados
-
-#### ✅ 1. Cluster Kubernetes Multi-Node
-**Requisito Original**: "Cluster composto por um nó mestre (plano de controle) e pelo menos dois nós escravos (worker nodes)"
-
-**Implementação**:
-- Script automatizado: `./scripts/setup_multinode_cluster.sh`
-- Configuração: 1 master + 2 workers
-- Tecnologia: Minikube multi-node
-- Tempo de setup: 5-10 minutos
-
-**Verificação**:
-```bash
-kubectl get nodes
-# Saída esperada:
-# NAME               STATUS   ROLES           AGE
-# pspd-cluster       Ready    control-plane   10m
-# pspd-cluster-m02   Ready    worker          9m
-# pspd-cluster-m03   Ready    worker          8m
-```
-
----
-
-#### ✅ 2. Prometheus Instalado no K8s
-**Requisito Original**: "Estudar e instalar, no K8S, o Prometheus"
-
-**Implementação**:
-- kube-prometheus-stack via Helm
-- Inclui: Prometheus Operator + Alertmanager
-- ServiceMonitors configurados para scraping automático
-- Coleta a cada 15 segundos
-
-**Componentes Instalados**:
-- Prometheus Server (porta 9090)
-- Prometheus Operator
-- Alertmanager
-- Node Exporter
-- Kube State Metrics
-
-**Verificação**:
-```bash
-kubectl get pods -n monitoring | grep prometheus
-# prometheus-kube-prometheus-prometheus-0   2/2   Running
-
-kubectl get servicemonitor -n pspd
-# gateway-p-monitor
-# service-a-monitor
-# service-b-monitor
-```
-
-**Acesso**:
-```bash
-./scripts/deploy.sh prometheus
-# http://localhost:9090
-```
-
----
-
-#### ✅ 3. Interface Web de Monitoramento
-**Requisito Original**: "Interface web de monitoramento do cluster"
-
-**Implementação**:
-- Grafana instalado automaticamente com kube-prometheus-stack
-- Dashboard customizado desenvolvido
-- 7 painéis de métricas em tempo real
-
-**Dashboard Inclui**:
-1. 📈 HTTP Request Rate (por serviço e método)
-2. ⏱️ HTTP Request Duration (p95, p99)
-3. 🔢 Pod Replicas (evolução HPA)
-4. 💻 CPU Usage (por pod e container)
-5. 💾 Memory Usage (por pod e container)
-6. ❌ Error Rate (gauge com threshold)
-
-**Arquivo**: `k8s/monitoring/grafana-dashboard.json`
-
-**Verificação**:
-```bash
-kubectl get pods -n monitoring | grep grafana
-# prometheus-grafana-xxx   3/3   Running
-```
-
-**Acesso**:
-```bash
-./scripts/deploy.sh grafana
-# http://localhost:3000
-# User: admin
-# Password: admin
-```
-
----
-
-## 🚀 Como Executar Tudo
-
-### Opção 1: Script Automatizado Completo
-```bash
-./RUN_COMPLETE.sh
-```
-
-Executa automaticamente:
-1. ✅ Cria cluster multi-node
-2. ✅ Instala Prometheus + Grafana
-3. ✅ Deploy das aplicações
-4. ✅ Configura ServiceMonitors
-5. ✅ Executa testes de carga
-6. ✅ Gera análise e gráficos
-
-**Tempo total**: 15-20 minutos
-
-### Opção 2: Passo a Passo Manual
-
-```bash
-# 1. Criar cluster (5-10 min)
-./scripts/setup_multinode_cluster.sh
-
-# 2. Deploy aplicações (2 min)
-./scripts/deploy.sh setup
-
-# 3. Configurar monitoramento (30s)
-./scripts/deploy.sh monitoring
-
-# 4. Acessar interfaces
-./scripts/deploy.sh grafana      # Terminal 1
-./scripts/deploy.sh prometheus   # Terminal 2
-./scripts/deploy.sh port-forward # Terminal 3
-
-# 5. Executar testes (8-20 min)
-BASE_URL=http://localhost:8080 ./scripts/run_all_tests.sh all
-
-# 6. Gerar análise
-./scripts/run_all_tests.sh analyze
-```
-
----
-
-## 📁 Arquivos Criados/Modificados
-
-### Novos Arquivos
-
-**Scripts**:
-- `scripts/setup_multinode_cluster.sh` - Setup completo cluster + Prometheus + Grafana
-- `RUN_COMPLETE.sh` - Execução end-to-end automatizada
-
-**Configuração Kubernetes**:
-- `k8s/monitoring/servicemonitor-a.yaml` - ServiceMonitor para Service A
-- `k8s/monitoring/servicemonitor-b.yaml` - ServiceMonitor para Service B
-- `k8s/monitoring/servicemonitor-gateway.yaml` - ServiceMonitor para Gateway P
-
-**Dashboard**:
-- `k8s/monitoring/grafana-dashboard.json` - Dashboard customizado Grafana
-
-**Documentação**:
-- `GUIA_MULTINODE.md` - Guia detalhado (220+ linhas)
-- `RESUMO_IMPLEMENTACAO.md` - Este arquivo
-
-### Arquivos Modificados
-
-**Scripts**:
-- `scripts/deploy.sh` - Adicionados comandos: `monitoring`, `grafana`, `prometheus`
-- `scripts/run_all_tests.sh` - Timeout automático no soak test (30s)
-
-**Documentação**:
-- `README.md` - Seções atualizadas:
-  - Setup Multi-Node
-  - Monitoramento (Grafana + Prometheus)
-  - Requisitos Acadêmicos Atendidos
-  - Diagrama arquitetura completa
-
----
-
-## 🎯 Resultados Obtidos
-
-### Cluster Multi-Node Funcional
-- ✅ 3 nós (1 master + 2 workers)
-- ✅ Pods distribuídos nos workers
-- ✅ HPA funcionando
-- ✅ Metrics-server ativo
-
-### Monitoramento Completo
-- ✅ Prometheus coletando métricas
-- ✅ 3 ServiceMonitors ativos
-- ✅ Grafana com dashboard customizado
-- ✅ Métricas HTTP e gRPC
-
-### Aplicações Instrumentadas
-- ✅ Gateway P (Node.js + prom-client)
-- ✅ Service A (Python + prometheus_client)
-- ✅ Service B (Python + prometheus_client)
-- ✅ Histogramas de latência
-- ✅ Contadores de requisições
-
-### Testes de Carga
-- ✅ 4 cenários k6 (baseline, ramp, spike, soak)
-- ✅ Análise comparativa automatizada
-- ✅ 6 gráficos gerados
-- ✅ Captura de métricas K8s
-
----
-
-## 📊 Exemplos de Métricas no Prometheus
-
-### Throughput
-```promql
-rate(http_requests_total{namespace="pspd"}[1m])
-```
-
-### Latência p95
-```promql
-histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{namespace="pspd"}[1m]))
-```
-
-### CPU por Pod
-```promql
-rate(container_cpu_usage_seconds_total{namespace="pspd",container!=""}[1m]) * 100
-```
-
-### Número de Réplicas
-```promql
-kube_deployment_status_replicas_available{namespace="pspd"}
-```
-
----
-
-## 🔧 Troubleshooting Comum
-
-### Cluster não inicia
-```bash
-# Aumentar recursos
-minikube delete -p pspd-cluster
-minikube start -p pspd-cluster --nodes 3 --cpus 4 --memory 8192
-```
-
-### Prometheus não coleta métricas
-```bash
-# Recriar ServiceMonitors
-./scripts/deploy.sh monitoring
-
-# Verificar logs
-kubectl logs -n monitoring prometheus-kube-prometheus-prometheus-0
-```
-
-### Grafana não abre
-```bash
-# Verificar pod
-kubectl get pods -n monitoring | grep grafana
-
-# Restart
-kubectl rollout restart deployment -n monitoring prometheus-grafana
-```
-
----
-
-## 📚 Documentação Adicional
-
-- **README.md** - Visão geral, quick start, testes de carga
-- **GUIA_MULTINODE.md** - Guia detalhado passo a passo (220+ linhas)
-  - Setup completo
-  - Configuração de monitoramento
-  - Importar dashboards
-  - Troubleshooting avançado
-  - Comandos úteis
-  - Validação completa
-
----
-
-## ✅ Checklist Final
-
-- [x] Cluster multi-node (1 master + 2 workers)
-- [x] Prometheus instalado no K8s
-- [x] Grafana com interface web
-- [x] ServiceMonitors configurados
-- [x] Dashboard customizado criado
-- [x] Métricas sendo coletadas
-- [x] Aplicações instrumentadas
-- [x] Testes de carga funcionando
-- [x] Análise automatizada
-- [x] Documentação completa
-- [x] Scripts automatizados
-- [x] Guia de execução
-
----
-
-## 🎓 Conclusão
-
-**Todos os 3 requisitos críticos foram implementados com sucesso**:
-
-1. ✅ **Cluster Multi-Node**: Implementado com minikube (1 master + 2 workers)
-2. ✅ **Prometheus no K8s**: Instalado via kube-prometheus-stack com ServiceMonitors
-3. ✅ **Interface Web**: Grafana funcional com dashboard customizado
-
-O projeto está 100% funcional e atende completamente aos requisitos acadêmicos especificados.
-
-**Repositório**: https://github.com/edilbertocantuaria/atividade-final-pspd
+FROM python:3.12-slim
+WORKDIR /app
+
+# 1) Instala deps específicas do serviço REST B
+COPY services/b_rest/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 2) Copia só o código do serviço
+COPY services/b_rest/ .
+
+# (Opcional) Se o REST B usar os protos, descomente:
+# COPY proto/ ./proto/
+# RUN touch /app/proto/__init__.py
+# ENV PYTHONPATH=/app:/app/proto
+
+EXPOSE 8000
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 ```
 
-docs/archive/EXECUCAO_COMPLETA.md
+services/b_rest/main.py
 ```
-# 🚀 GUIA DE EXECUÇÃO COMPLETA - TODOS OS TESTES
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+import time
+
+app = FastAPI(title="B-REST-Streaming")
+
+# Base de metadados e recomendações
+METADATA_DB = {
+    "m1": [{"key": "director", "value": "James Cameron", "score": 0.95}, 
+           {"key": "cast", "value": "Chris Evans, Zoe Saldana", "score": 0.90}, 
+           {"key": "similar", "value": "Interestelar", "score": 0.85}],
+    "m2": [{"key": "director", "value": "Christopher Nolan", "score": 0.95}, 
+           {"key": "cast", "value": "Leonardo DiCaprio", "score": 0.90},
+           {"key": "similar", "value": "Amnésia", "score": 0.88}],
+    "m3": [{"key": "director", "value": "Nancy Meyers", "score": 0.92}, 
+           {"key": "cast", "value": "Julia Roberts, Tom Hanks", "score": 0.88},
+           {"key": "similar", "value": "Amor à Segunda Vista", "score": 0.85}],
+    "m4": [{"key": "director", "value": "Ridley Scott", "score": 0.94}, 
+           {"key": "cast", "value": "Tom Hardy, Charlize Theron", "score": 0.91},
+           {"key": "similar", "value": "Mad Max", "score": 0.90}],
+    "s1": [{"key": "creator", "value": "J.J. Abrams", "score": 0.96}, 
+           {"key": "cast", "value": "Millie Bobby Brown", "score": 0.92},
+           {"key": "similar", "value": "Dark", "score": 0.90}],
+    "s2": [{"key": "creator", "value": "Vince Gilligan", "score": 0.95}, 
+           {"key": "cast", "value": "Bryan Cranston", "score": 0.93},
+           {"key": "similar", "value": "True Detective", "score": 0.89}],
+}
+
+@app.get("/api/metadata/{content_id}")
+def get_metadata(content_id: str, userId: str = "guest"):
+    """Retorna metadados e recomendações para um conteúdo"""
+    metadata = METADATA_DB.get(content_id, [])
+    
+    # Simula processamento
+    time.sleep(0.05)
+    
+    # Se não houver metadados, retorna recomendações genéricas
+    if not metadata:
+        metadata = [
+            {"key": "recommendation", "value": f"Conteúdo recomendado #1", "score": 0.7},
+            {"key": "recommendation", "value": f"Conteúdo recomendado #2", "score": 0.6},
+            {"key": "recommendation", "value": f"Conteúdo recomendado #3", "score": 0.5},
+        ]
+    
+    return JSONResponse({
+        "content_id": content_id,
+        "user_id": userId,
+        "metadata": metadata,
+        "source": "B-REST"
+    })
 
-> **⚠️ DOCUMENTO ARQUIVADO** - Algumas referências a scripts (`./scripts/deploy.sh`) estão desatualizadas.  
-> **Use este arquivo**: `QUICKSTART.md` na raiz do projeto para instruções atualizadas.
-
-> **Este é um documento histórico da implementação original.**
-
----
-
-## 📌 O QUE ESTE GUIA FAZ
-
-Executa **TODOS** os testes cobrindo **TODOS** os requisitos acadêmicos:
-
-✅ **Cluster Kubernetes Multi-Node** (1 master + 2 workers)  
-✅ **Prometheus instalado no K8s** (via Helm)  
-✅ **Interface Web de Monitoramento** (Grafana com dashboard customizado)  
-✅ **5 Cenários de Teste de Carga** (baseline, ramp, spike, stress, soak)  
-✅ **Métricas e Gráficos** (análise automatizada com Python)  
-✅ **Sistema de Checkpoints** (continua de onde parou em caso de erro)
-
----
-
-## ⚡ EXECUÇÃO RÁPIDA (4 COMANDOS)
-
-### 🔴 IMPORTANTE: Diferença entre os scripts
-
-- **`./RUN_COMPLETE.sh`** = **SETUP DO AMBIENTE** (executar 1 vez)
-  - Cria cluster Kubernetes multi-node
-  - Instala Prometheus + Grafana
-  - Faz build e deploy das aplicações
-  - **Execute apenas UMA VEZ** ou após deletar o cluster
-
-- **`./scripts/run_all_tests.sh all`** = **TESTES DE CARGA** (pode executar várias vezes)
-  - Executa os 4 testes de carga
-  - Coleta métricas e logs
-  - **Pode executar QUANTAS VEZES QUISER** sem refazer o setup
-
----
-
-### Primeira Execução (do zero):
-
-```bash
-# 1️⃣ Setup completo (cluster + apps + Prometheus + Grafana) - 5-10 min
-#    ⚠️ Execute apenas UMA VEZ
-./RUN_COMPLETE.sh
-
-# 2️⃣ Em OUTRO terminal: Port-forward estável
-#    ⚠️ Deixe rodando durante os testes
-./scripts/stable_port_forward.sh
-
-# 3️⃣ Executar TODOS os testes - 15-20 min
-#    ✅ Pode executar VÁRIAS VEZES sem refazer o setup
-./scripts/run_all_tests.sh all
-# Aguarde 15s (ou pressione Enter) para executar stress e soak automaticamente
-
-# 4️⃣ Gerar gráficos e análise
-python3 scripts/analyze_results.py
-```
-
-### Execuções Subsequentes (cluster já existe):
-
-```bash
-# ❌ NÃO precisa executar ./RUN_COMPLETE.sh novamente!
-# ✅ Apenas rode os testes quantas vezes quiser:
-
-./scripts/stable_port_forward.sh     # Se não estiver rodando
-./scripts/run_all_tests.sh all       # Testes novamente
-python3 scripts/analyze_results.py   # Novos gráficos
-```
-
-✅ **Pronto!** Todos os resultados estarão em `results/`
-
----
-
-## 📖 EXECUÇÃO DETALHADA (PASSO A PASSO)
-
-### ETAPA 1: Preparação do Ambiente
-
-```bash
-# Garantir que está no diretório correto
-cd atividade-final-pspd
-
-# Verificar dependências
-which minikube kubectl helm docker k6 python3
-# Se algo faltar, instale antes de continuar
-```
-
-**Dependências necessárias:**
-- minikube (versão 1.34+)
-- kubectl (versão 1.30+)
-- helm (versão 3.0+)
-- docker (para builds)
-- k6 (para testes de carga)
-- python3 + pip (para análise)
-
----
-
-### ETAPA 2: Criar Cluster Multi-Node
-
-```bash
-# Opção A: Script automatizado (RECOMENDADO)
-./RUN_COMPLETE.sh
-# Este script tem checkpoints - se falhar, pode executar novamente que continua de onde parou
-
-# Opção B: Passo a passo manual
-./scripts/setup_multinode_cluster.sh    # Cria cluster 1+2
-./scripts/deploy.sh setup                # Deploy das apps
-./scripts/deploy.sh monitoring           # Configura Prometheus
-```
-
-**O que acontece:**
-1. Cria cluster minikube com 3 nós (1 master + 2 workers)
-2. Instala Helm se não estiver presente
-3. Instala kube-prometheus-stack (Prometheus + Grafana + Alertmanager)
-4. Faz build das 3 imagens Docker (gateway-p, service-a, service-b)
-5. Carrega imagens em todos os nós do cluster
-6. Faz deploy de todos os deployments, services, HPAs
-7. Configura 3 ServiceMonitors para scraping automático
-8. Expõe Prometheus (NodePort 30090) e Grafana (NodePort 31510)
-9. Importa dashboard customizado no Grafana
-
-**Tempo estimado:** 5-10 minutos (primeira vez)
-
-**Validação:**
-```bash
-# Verificar cluster
-minikube profile list
-kubectl get nodes
-
-# Verificar pods
-kubectl get pods -n pspd
-kubectl get pods -n monitoring
-
-# Verificar serviços
-kubectl get svc -n pspd
-kubectl get svc -n monitoring
-
-# Todos os pods devem estar Running/Completed
-```
-
----
-
-### ETAPA 3: Configurar Port-Forwards
-
-```bash
-# Em um TERMINAL SEPARADO, deixe rodando:
-./scripts/stable_port_forward.sh
-```
-
-**O que faz:**
-- Port-forward para Prometheus: `http://localhost:9090`
-- Port-forward para Grafana: `http://localhost:3000`
-- Port-forward para Gateway P: `http://localhost:8080`
-- Auto-restart em caso de queda (útil durante testes pesados)
-
-**Validação:**
-```bash
-# Em outro terminal:
-curl http://localhost:8080          # Gateway P
-curl http://localhost:9090/-/ready  # Prometheus
-curl http://localhost:3000/api/health  # Grafana
-```
-
----
-
-### ETAPA 4: Acessar Grafana e Dashboard
-
-1. **Abrir navegador:** `http://localhost:3000`
-2. **Login:**
-   - Usuário: `admin`
-   - Senha: `admin` (pode pular alteração)
-3. **Dashboard:**
-   - Menu lateral → Dashboards → "PSPD - Microservices Observability"
-
-**Painel do Dashboard (7 gráficos):**
-- HTTP Request Rate (req/s)
-- HTTP Request Duration P95 (ms)
-- CPU Usage (%)
-- Memory Usage (MB)
-- Pod Replicas
-- HTTP Error Rate (%)
-- gRPC Request Duration P95 (ms)
-
----
-
-### ETAPA 5: Executar TODOS os Testes
-
-```bash
-# TERMINAL PRINCIPAL (não o do port-forward):
-./scripts/run_all_tests.sh all
-```
-
-**💡 Executar testes individuais:**
-
-```bash
-# Apenas um teste específico:
-./scripts/run_all_tests.sh baseline   # 30s
-./scripts/run_all_tests.sh ramp       # 90s
-./scripts/run_all_tests.sh spike      # 30s
-./scripts/run_all_tests.sh soak       # 11 min
-```
-
-**Sequência automática:**
-
-1. **Baseline** (30s)
-   - 10 VUs constantes
-   - Validação: taxa erro < 1%, p95 < 500ms
-
-2. **Ramp** (90s)
-   - 10 → 150 VUs gradual
-   - Validação: HPA escala pods
-
-3. **Spike** (30s)
-   - 10 → 200 VUs súbito
-   - Validação: resiliência sob carga extrema (pode ter erros)
-
-4. **Soak** (11 minutos) - *Aguarda 15s ou pressione Enter*
-   - 50 VUs por 10 minutos
-   - Validação: estabilidade prolongada
-
-**Comportamento padrão:**
-- Se não responder nada, **EXECUTA TUDO** automaticamente
-- Para pular stress ou soak: digite `n` antes dos 15s
-
-**Tempo total:** 15-20 minutos (com todos os testes)
-
-**O que é coletado durante os testes:**
-- Métricas JSON do k6 (`results/{test}/metrics.json`)
-- Logs de execução (`results/{test}/output.txt`)
-- Snapshots de pods antes/depois (`results/{test}/pod-metrics-{pre|post}.txt`)
-- Status do HPA (`results/{test}/hpa-status-{pre|post}.txt`)
-- Eventos do K8s (apenas spike: `results/{test}/events.txt`)
-
----
-
-### ETAPA 6: Analisar Resultados
-
-```bash
-# Gerar gráficos e análise estatística
-python3 scripts/analyze_results.py
-```
-
-**Saídas geradas em `results/plots/`:**
-
-1. **response_times_comparison.png**
-   - Comparação de latências (p50, p95, p99) entre todos os testes
-
-2. **throughput_comparison.png**
-   - Requests por segundo de cada teste
-
-3. **error_rates.png**
-   - Taxa de erro (%) por teste
-
-4. **{test}_timeline.png** (para cada teste)
-   - Evolução temporal: latência, throughput, erros
-
-5. **hpa_scaling.png**
-   - Evolução do número de réplicas durante os testes
-
-6. **resource_usage.png**
-   - CPU e memória dos pods ao longo do tempo
-
-**Resumo em texto:** `results/test_summary.txt`
-
----
-
-## 📊 RESULTADOS ESPERADOS
-
-### Testes Sem Erros (baseline, ramp, spike, soak)
-
-```
-Baseline:  10 VUs × 30s   → p95 < 500ms, erro = 0%
-Ramp:      10→150 VUs     → p95 < 1s,    erro = 0%, HPA escala
-Spike:     10→200 VUs     → p95 < 2s,    erro < 10%, recuperação rápida
-Soak:      50 VUs × 10min → p95 < 800ms, erro = 0%, sem memory leak
-```
-
-### Teste Stress (opcional, pode ter erros)
-
-```
-Stress:    10→200 VUs     → p95 < 2s, erro < 50%, identifica limite
-```
-
-**Indicadores de sucesso:**
-- ✅ HPA escalou de 1 para 3+ réplicas durante ramp/spike
-- ✅ Pods retornaram a 1 réplica após testes
-- ✅ Taxa de erro = 0% em baseline, ramp e soak
-- ✅ Taxa de erro < 10% no spike (carga extrema)
-- ✅ P95 abaixo dos thresholds definidos
-- ✅ Prometheus coletou métricas de todos os serviços
-- ✅ Grafana mostra gráficos em tempo real
-
----
-
-## 🔍 VERIFICAÇÃO E TROUBLESHOOTING
-
-### Verificar Estado do Sistema
-
-```bash
-# Pods rodando
-kubectl get pods -n pspd
-# Deve mostrar: gateway-p, service-a, service-b (Running)
-
-# HPA funcionando
-kubectl get hpa -n pspd
-# Deve mostrar 3 HPAs com TARGETS preenchidos
-
-# Prometheus scraping
-kubectl logs -n monitoring -l app.kubernetes.io/name=prometheus -c prometheus | grep "pspd"
-# Deve mostrar scrapes bem-sucedidos
-
-# ServiceMonitors
-kubectl get servicemonitor -n pspd
-# Deve mostrar: gateway-p-monitor, service-a-monitor, service-b-monitor
-```
-
-### Problemas Comuns
-
-**1. Port-forward cai durante teste spike/stress**
-- ✅ **Normal!** O script `stable_port_forward.sh` reinicia automaticamente
-- Aguarde 5-10 segundos, ele reconecta sozinho
-
-**2. "Serviço não acessível em http://localhost:8080"**
-```bash
-# Verificar se port-forward está rodando
-ps aux | grep "port-forward"
-
-# Se não estiver, executar em terminal separado:
-./scripts/stable_port_forward.sh
-```
-
-**3. Pods não escalam durante ramp**
-```bash
-# Verificar HPA
-kubectl describe hpa -n pspd
-
-# Verificar metrics-server
-kubectl top pods -n pspd
-
-# Se métricas não aparecem, esperar 1-2 minutos (warm-up)
-```
-
-**4. Teste spike causa erros (~33%)**
-- ✅ **Normal!** Spike de 200 VUs testa limite do sistema
-- Sistema deve se recuperar após o pico
-- Para relatório: mostre a capacidade de recuperação
-
-**5. Teste stress causa muitos erros (>50%)**
-- ✅ **Esperado!** Stress encontra o limite absoluto
-- Use stress apenas para análise de capacidade máxima
-
-**6. Grafana não carrega dashboard**
-```bash
-# Reimportar dashboard
-./scripts/deploy.sh monitoring
-
-# Ou acessar Grafana e importar manualmente:
-# Dashboards → Import → Colar JSON de k8s/grafana-dashboard.json
-```
-
----
-
-## 📁 ESTRUTURA DE RESULTADOS
-
-Após execução completa:
-
-```
-results/
-├── baseline/
-│   ├── metrics.json          # Dados brutos k6
-│   ├── output.txt            # Log do teste
-│   ├── pod-metrics-pre.txt   # Recursos antes
-│   └── pod-metrics-post.txt  # Recursos depois
-├── ramp/
-├── spike/
-│   └── events.txt            # Eventos K8s (HPA scaling)
-├── stress/
-├── soak/
-├── plots/                    # GRÁFICOS GERADOS
-│   ├── response_times_comparison.png
-│   ├── throughput_comparison.png
-│   ├── error_rates.png
-│   ├── baseline_timeline.png
-│   ├── ramp_timeline.png
-│   ├── spike_timeline.png
-│   ├── stress_timeline.png
-│   ├── soak_timeline.png
-│   ├── hpa_scaling.png
-│   └── resource_usage.png
-├── test_summary.txt          # Resumo estatístico
-├── hpa-final.yaml            # Configuração HPA final
-├── pods-final.txt            # Estado final dos pods
-├── prometheus-metrics.txt    # Snapshot de métricas
-└── gateway-logs.txt          # Logs das aplicações
-```
-
----
-
-## 🎯 CHECKLIST COMPLETO
-
-### Antes de Iniciar
-- [ ] Dependências instaladas (minikube, kubectl, helm, docker, k6, python3)
-- [ ] Docker daemon rodando
-- [ ] Pelo menos 8GB RAM disponível
-- [ ] Pelo menos 20GB disco disponível
-
-### Execução
-- [ ] Cluster multi-node criado (1+2 nós)
-- [ ] Prometheus instalado e rodando
-- [ ] Grafana acessível com dashboard
-- [ ] Port-forwards ativos (terminal separado)
-- [ ] Teste baseline executado (0% erro)
-- [ ] Teste ramp executado (HPA escalou)
-- [ ] Teste spike executado (0% erro)
-- [ ] Teste stress executado (limite encontrado)
-- [ ] Teste soak executado (estabilidade confirmada)
-- [ ] Análise Python executada (gráficos gerados)
-
-### Validação Final
-- [ ] 10+ arquivos PNG em `results/plots/`
-- [ ] `test_summary.txt` com estatísticas
-- [ ] Todos os testes com p95 dentro dos limites
-- [ ] HPA escalou e voltou ao normal
-- [ ] Prometheus coletando métricas de 3 serviços
-- [ ] Grafana mostrando dados em tempo real
-
----
-
-## 🎓 PARA O RELATÓRIO ACADÊMICO
-
-**Use estes resultados:**
-
-1. **Arquitetura:**
-   - Diagrama do cluster multi-node (README.md)
-   - Print do `kubectl get nodes`
-   - Print do Grafana dashboard
-
-2. **Monitoramento:**
-   - Print do Prometheus Targets (todos UP)
-   - Print do Grafana mostrando métricas
-   - ServiceMonitors configurados
-
-3. **Testes de Carga:**
-   - Tabela comparativa de `test_summary.txt`
-   - Gráficos de `results/plots/`
-   - Foco em: baseline, ramp, spike, soak
-
-4. **Escalabilidade:**
-   - `hpa_scaling.png` mostrando auto-scaling
-   - Prints de `kubectl get hpa` durante ramp
-   - Comparação de latência 1 vs 3 réplicas
-
-5. **Conclusões:**
-   - Sistema escala automaticamente com HPA
-   - Prometheus + Grafana permitem observabilidade completa
-   - Cluster multi-node distribui carga entre workers
-   - Todos os testes passaram nos thresholds
-
----
-
-## 📞 COMANDOS ÚTEIS
-
-### Executar Testes Individuais
-
-```bash
-# Todos os testes (15-20 min)
-./scripts/run_all_tests.sh all
-
-# Testes individuais:
-./scripts/run_all_tests.sh baseline   # 30s - Carga constante
-./scripts/run_all_tests.sh ramp       # 90s - Escalonamento gradual
-./scripts/run_all_tests.sh spike      # 30s - Pico súbito
-./scripts/run_all_tests.sh stress     # 90s - Limite máximo
-./scripts/run_all_tests.sh soak       # 11min - Estabilidade prolongada
-```
-
-### Monitoramento em Tempo Real
-
-```bash
-# Ver logs em tempo real durante testes
-kubectl logs -f -n pspd -l app=p
-
-# Monitorar HPA
-watch -n 2 kubectl get hpa -n pspd
-
-# Ver eventos de scaling
-kubectl get events -n pspd --sort-by='.lastTimestamp' | grep -i scale
-
-# Consultar Prometheus direto
-curl 'http://localhost:9090/api/v1/query?query=up'
-```
-
-### Gerenciamento do Cluster
-
-```bash
-# Reiniciar tudo do zero
-minikube delete -p pspd-cluster
-./RUN_COMPLETE.sh
-
-# Parar cluster (sem deletar)
-minikube stop -p pspd-cluster
-
-# Iniciar cluster parado
-minikube start -p pspd-cluster
-```
-
----
-
-## ✅ RESUMO: 4 COMANDOS PARA TUDO
-
-### 🔴 Primeira Vez (ou após `minikube delete`):
-
-```bash
-# 1. Setup (UMA VEZ) - Cria cluster + instala Prometheus + deploy apps
-./RUN_COMPLETE.sh
-
-# 2. Port-forward (terminal separado) - Deixe rodando
-./scripts/stable_port_forward.sh
-
-# 3. Testes (pode executar VÁRIAS VEZES) - Coleta métricas
-./scripts/run_all_tests.sh all
-
-# 4. Análise (após cada execução de testes) - Gera gráficos
-python3 scripts/analyze_results.py
-```
-
-### 🟢 Execuções Seguintes (cluster já existe):
-
-```bash
-# ❌ NÃO execute ./RUN_COMPLETE.sh novamente!
-# ✅ Apenas os testes:
-
-./scripts/run_all_tests.sh all       # Quantas vezes quiser
-python3 scripts/analyze_results.py   # Atualizar gráficos
-```
-
----
-
-**Analogia simples:**
-- `RUN_COMPLETE.sh` = **construir a casa** 🏗️ (uma vez)
-- `run_all_tests.sh` = **testar a casa** 🔬 (quantas vezes quiser)
-
-**Pronto! Você tem TUDO necessário para o trabalho acadêmico.** 🎓✨
 
 ```
 
-docs/archive/TESTES_SEM_ERROS.md
+services/b_py/Dockerfile
 ```
-# 🎯 Guia Rápido - Testes sem Erros
+FROM python:3.11-slim AS builder
 
-## ✅ Agora Você Tem 2 Opções:
+WORKDIR /app
 
-### 1. **Testes Padrão** (SEM erros) ✅ Recomendado
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir --user -r requirements.txt
 
-```bash
-./scripts/run_all_tests.sh all
+# Final stage
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copy dependencies from builder
+COPY --from=builder /root/.local /root/.local
+
+# Copy application
+COPY . .
+
+# Make sure scripts in .local are usable
+ENV PATH=/root/.local/bin:$PATH
+
+# Generate proto files
+RUN python -m grpc_tools.protoc -I. \
+    --python_out=. \
+    --grpc_python_out=. \
+    proto/services.proto
+
+EXPOSE 50052 9102
+
+CMD ["python", "server.py"]
+
 ```
 
-**Executa 4 testes**:
-- ✅ Baseline (10 VUs): 100% sucesso
-- ✅ Ramp (10→150 VUs): 100% sucesso
-- ✅ **Spike (10→80 VUs)**: 100% sucesso ← **AJUSTADO!**
-- ✅ Soak (50 VUs): 100% sucesso
+services/b_py/server.py
+```
+import grpc
+from concurrent import futures
+import time, os
+from prometheus_client import start_http_server, Counter, Histogram
 
-**Tempo total**: ~18 minutos (se aceitar soak)
+from proto import services_pb2, services_pb2_grpc
 
----
+# Prometheus metrics
+REQUEST_COUNT = Counter(
+    'grpc_server_requests_total',
+    'Total gRPC requests to Service B',
+    ['method', 'status']
+)
 
-### 2. **Teste de Stress** (PODE ter erros) ⚠️ Opcional
+REQUEST_LATENCY = Histogram(
+    'grpc_server_request_duration_seconds',
+    'gRPC request latency for Service B',
+    ['method'],
+    buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5]
+)
 
-```bash
-./scripts/run_all_tests.sh stress
+STREAM_ITEMS = Counter(
+    'grpc_server_stream_items_total',
+    'Total items streamed by Service B',
+    ['method']
+)
+
+# Base de metadados e recomendações
+METADATA_DB = {
+    "m1": [("director", "James Cameron", 0.95), ("cast", "Chris Evans, Zoe Saldana", 0.90), 
+           ("similar", "Interestelar", 0.85), ("similar", "Gravidade", 0.80)],
+    "m2": [("director", "Christopher Nolan", 0.95), ("cast", "Leonardo DiCaprio", 0.90),
+           ("similar", "Amnésia", 0.88), ("similar", "Ilha do Medo", 0.82)],
+    "m3": [("director", "Nancy Meyers", 0.92), ("cast", "Julia Roberts, Tom Hanks", 0.88),
+           ("similar", "Amor à Segunda Vista", 0.85), ("similar", "Você Tem Um Email", 0.80)],
+    "m4": [("director", "Ridley Scott", 0.94), ("cast", "Tom Hardy, Charlize Theron", 0.91),
+           ("similar", "Mad Max", 0.90), ("similar", "John Wick", 0.85)],
+    "s1": [("creator", "J.J. Abrams", 0.96), ("cast", "Millie Bobby Brown", 0.92),
+           ("similar", "Dark", 0.90), ("similar", "Stranger Things", 0.88)],
+    "s2": [("creator", "Vince Gilligan", 0.95), ("cast", "Bryan Cranston", 0.93),
+           ("similar", "True Detective", 0.89), ("similar", "Mindhunter", 0.84)],
+    "s3": [("creator", "Greg Garcia", 0.90), ("cast", "Amy Poehler", 0.87),
+           ("similar", "Modern Family", 0.88), ("similar", "Brooklyn Nine-Nine", 0.83)],
+    "s4": [("creator", "David Chase", 0.97), ("cast", "James Gandolfini", 0.95),
+           ("similar", "The Wire", 0.92), ("similar", "Breaking Bad", 0.90)],
+}
+
+class ServiceBImpl(services_pb2_grpc.ServiceBServicer):
+    def StreamMetadata(self, request, context):
+        """Retorna stream de metadados e recomendações para um conteúdo"""
+        start = time.time()
+        try:
+            content_id = request.content_id
+            metadata_list = METADATA_DB.get(content_id, [])
+            
+            # Simula processamento incremental (análise de dados)
+            for key, value, score in metadata_list:
+                time.sleep(0.01)  # Simula latência de processamento
+                yield services_pb2.MetadataItem(
+                    key=key,
+                    value=value,
+                    relevance_score=score
+                )
+                STREAM_ITEMS.labels(method='StreamMetadata').inc()
+            
+            # Adiciona recomendações genéricas se não houver metadados
+            if not metadata_list:
+                for i in range(3):
+                    time.sleep(0.01)
+                    yield services_pb2.MetadataItem(
+                        key="recommendation",
+                        value=f"Conteúdo recomendado #{i+1}",
+                        relevance_score=0.7 - (i * 0.1)
+                    )
+                    STREAM_ITEMS.labels(method='StreamMetadata').inc()
+            
+            REQUEST_COUNT.labels(method='StreamMetadata', status='success').inc()
+            
+        except Exception as e:
+            REQUEST_COUNT.labels(method='StreamMetadata', status='error').inc()
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(f"Error: {str(e)}")
+        finally:
+            REQUEST_LATENCY.labels(method='StreamMetadata').observe(time.time() - start)
+
+def serve():
+    # Start Prometheus metrics server
+    metrics_port = int(os.environ.get("METRICS_PORT", "9102"))
+    start_http_server(metrics_port)
+    print(f"Metrics server started on :{metrics_port}", flush=True)
+    
+    port = int(os.environ.get("PORT", "50052"))
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    services_pb2_grpc.add_ServiceBServicer_to_server(ServiceBImpl(), server)
+    server.add_insecure_port(f"[::]:{port}")
+    server.start()
+    print(f"Service B listening on :{port}", flush=True)
+    try:
+        while True:
+            time.sleep(86400)
+    except KeyboardInterrupt:
+        server.stop(0)
+
+if __name__ == "__main__":
+    serve()
+
 ```
 
-**O que faz**:
-- Escala gradualmente: 10 → 50 → 100 → 150 → 200 VUs
-- **Objetivo**: Encontrar o limite máximo do sistema
-- **Esperado**: Pode ter 10-50% de erro no pico
-- **Uso**: Apenas para identificar capacidade máxima
+services/b_py/proto/services.proto
+```
+// Contrato de comunicação gRPC para aplicação de streaming
+// Service A: Catálogo de conteúdo (filmes, séries, canais ao vivo)
+// Service B: Metadados e recomendações
 
----
+syntax = "proto3";
 
-## 📊 Comparação
+package pspd;
 
-### Spike (NOVO - Sem Erros)
+// Service A: Catálogo de conteúdo
+message ContentRequest {
+  string type = 1; // "movies", "series", "live", "all"
+  int32 limit = 2;
+  string genre = 3;
+}
 
-```javascript
-stages: [
-  { duration: '10s', target: 10 },
-  { duration: '10s', target: 80 },  // ← reduzido de 200
-  { duration: '30s', target: 80 },
-  { duration: '10s', target: 10 },
+message ContentItem {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  string thumbnail = 4;
+  string type = 5;
+  repeated string genres = 6;
+  int32 year = 7;
+  float rating = 8;
+  string duration = 9;
+}
+
+message ContentResponse {
+  repeated ContentItem items = 1;
+  int32 total = 2;
+}
+
+service ServiceA {
+  rpc GetContent(ContentRequest) returns (ContentResponse);
+}
+
+// Service B: Metadados e recomendações (streaming)
+message MetadataRequest {
+  string content_id = 1;
+  string user_id = 2;
+}
+
+message MetadataItem {
+  string key = 1;
+  string value = 2;
+  float relevance_score = 3;
+}
+
+service ServiceB {
+  rpc StreamMetadata(MetadataRequest) returns (stream MetadataItem);
+}
+
+```
+
+services/a_rest/Dockerfile
+```
+FROM python:3.12-slim
+WORKDIR /app
+
+# Copia só o requirements do serviço (cache)
+COPY services/a_rest/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Agora o código do serviço
+COPY services/a_rest/ .
+
+# Se usar os protos no REST, descomente:
+# COPY proto/ ./proto/
+# RUN touch /app/proto/__init__.py
+# ENV PYTHONPATH=/app:/app/proto
+
+EXPOSE 8000
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+```
+
+services/a_rest/main.py
+```
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+import time
+
+app = FastAPI(title="A-REST-Streaming")
+
+# Catálogo de conteúdo
+CONTENT_CATALOG = [
+    {"id": "m1", "title": "A Jornada Infinita", "description": "Uma aventura épica através das galáxias",
+     "type": "movie", "genres": ["Ficção Científica", "Aventura"], "year": 2024, "rating": 8.7, "duration": "2h 15min"},
+    {"id": "m2", "title": "Segredos do Passado", "description": "Um thriller psicológico sobre memórias esquecidas",
+     "type": "movie", "genres": ["Thriller", "Drama"], "year": 2024, "rating": 8.2, "duration": "1h 55min"},
+    {"id": "m3", "title": "Risadas na Cidade", "description": "Uma comédia romântica em uma metrópole agitada",
+     "type": "movie", "genres": ["Comédia", "Romance"], "year": 2024, "rating": 7.5, "duration": "1h 45min"},
+    {"id": "m4", "title": "O Último Guardião", "description": "Um guerreiro protege a última esperança da humanidade",
+     "type": "movie", "genres": ["Ação", "Aventura"], "year": 2023, "rating": 8.9, "duration": "2h 30min"},
+    {"id": "s1", "title": "Dimensões Paralelas", "description": "Cientistas descobrem portal para realidades alternativas",
+     "type": "series", "genres": ["Ficção Científica", "Drama"], "year": 2024, "rating": 9.1, "duration": "3 temporadas"},
+    {"id": "s2", "title": "Cidade Sombria", "description": "Detetives investigam crimes sobrenaturais",
+     "type": "series", "genres": ["Suspense", "Sobrenatural"], "year": 2023, "rating": 8.8, "duration": "2 temporadas"},
 ]
+
+@app.get("/api/content")
+def get_content(type: str = "all", limit: int = 20, genre: str = ""):
+    """Retorna catálogo de conteúdo filtrado"""
+    # Filtrar por tipo
+    filtered = CONTENT_CATALOG if type == "all" else [
+        c for c in CONTENT_CATALOG if c["type"] == type
+    ]
+    
+    # Filtrar por gênero
+    if genre:
+        filtered = [c for c in filtered if genre in c["genres"]]
+    
+    # Aplicar limite
+    filtered = filtered[:limit]
+    
+    return JSONResponse({
+        "items": filtered,
+        "total": len(filtered),
+        "source": "A-REST"
+    })
+
+@app.get("/api/content/{content_id}")
+def get_content_by_id(content_id: str):
+    """Retorna detalhes de um conteúdo específico"""
+    for item in CONTENT_CATALOG:
+        if item["id"] == content_id:
+            return JSONResponse(item)
+    return JSONResponse({"error": "Content not found"}, status_code=404)
+
+
 ```
 
-**Resultados esperados**:
-- ✅ Taxa de sucesso: 100%
-- ✅ P95 latência: < 1s
-- ✅ Port-forward: Estável
-- ✅ HPA: Escala de 1 para 2-3 réplicas
+services/a_py/Dockerfile
+```
+FROM python:3.11-slim AS builder
 
-### Stress (NOVO - Opcional)
+WORKDIR /app
 
-```javascript
-stages: [
-  { duration: '10s', target: 10 },
-  { duration: '20s', target: 50 },
-  { duration: '20s', target: 100 },
-  { duration: '20s', target: 150 },
-  { duration: '20s', target: 200 },  // pico máximo
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+# Final stage
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copy dependencies from builder
+COPY --from=builder /root/.local /root/.local
+
+# Copy application
+COPY . .
+
+# Make sure scripts in .local are usable
+ENV PATH=/root/.local/bin:$PATH
+
+# Generate proto files
+RUN python -m grpc_tools.protoc -I. \
+    --python_out=. \
+    --grpc_python_out=. \
+    proto/services.proto
+
+EXPOSE 50051 9101
+
+CMD ["python", "server.py"]
+
+```
+
+services/a_py/server.py
+```
+import grpc
+from concurrent import futures
+import time, os
+from prometheus_client import start_http_server, Counter, Histogram
+
+from proto import services_pb2, services_pb2_grpc
+
+# Prometheus metrics
+REQUEST_COUNT = Counter(
+    'grpc_server_requests_total',
+    'Total gRPC requests to Service A',
+    ['method', 'status']
+)
+
+REQUEST_LATENCY = Histogram(
+    'grpc_server_request_duration_seconds',
+    'gRPC request latency for Service A',
+    ['method'],
+    buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5]
+)
+
+CONTENT_ITEMS_RETURNED = Counter(
+    'content_items_returned_total',
+    'Total content items returned',
+    ['content_type']
+)
+
+# Catálogo de conteúdo simulado
+CONTENT_CATALOG = [
+    {"id": "m1", "title": "A Jornada Infinita", "description": "Uma aventura épica através das galáxias",
+     "type": "movie", "genres": ["Ficção Científica", "Aventura"], "year": 2024, "rating": 8.7, "duration": "2h 15min"},
+    {"id": "m2", "title": "Segredos do Passado", "description": "Um thriller psicológico sobre memórias esquecidas",
+     "type": "movie", "genres": ["Thriller", "Drama"], "year": 2024, "rating": 8.2, "duration": "1h 55min"},
+    {"id": "m3", "title": "Risadas na Cidade", "description": "Uma comédia romântica em uma metrópole agitada",
+     "type": "movie", "genres": ["Comédia", "Romance"], "year": 2024, "rating": 7.5, "duration": "1h 45min"},
+    {"id": "m4", "title": "O Último Guardião", "description": "Um guerreiro protege a última esperança da humanidade",
+     "type": "movie", "genres": ["Ação", "Aventura"], "year": 2023, "rating": 8.9, "duration": "2h 30min"},
+    {"id": "s1", "title": "Dimensões Paralelas", "description": "Cientistas descobrem portal para realidades alternativas",
+     "type": "series", "genres": ["Ficção Científica", "Drama"], "year": 2024, "rating": 9.1, "duration": "3 temporadas"},
+    {"id": "s2", "title": "Cidade Sombria", "description": "Detetives investigam crimes sobrenaturais",
+     "type": "series", "genres": ["Suspense", "Sobrenatural"], "year": 2023, "rating": 8.8, "duration": "2 temporadas"},
+    {"id": "s3", "title": "Família Moderna", "description": "O dia a dia de uma família brasileira contemporânea",
+     "type": "series", "genres": ["Comédia", "Família"], "year": 2024, "rating": 7.9, "duration": "1 temporada"},
+    {"id": "s4", "title": "Império do Crime", "description": "A ascensão de um sindicato do crime organizado",
+     "type": "series", "genres": ["Drama", "Crime"], "year": 2023, "rating": 9.3, "duration": "4 temporadas"},
+    {"id": "ch1", "title": "Canal Premium", "description": "Entretenimento ao vivo 24/7",
+     "type": "live", "genres": ["Entretenimento"], "year": 2024, "rating": 8.5, "duration": "24/7"},
+    {"id": "ch2", "title": "Canal Notícias", "description": "Notícias em tempo real",
+     "type": "live", "genres": ["Notícias"], "year": 2024, "rating": 8.0, "duration": "24/7"},
+    {"id": "ch3", "title": "Canal Esportes", "description": "Transmissões esportivas ao vivo",
+     "type": "live", "genres": ["Esportes"], "year": 2024, "rating": 9.0, "duration": "24/7"},
 ]
-```
 
-**Resultados esperados**:
-- ⚠️ Taxa de sucesso: 50-90% (varia)
-- ⚠️ P95 latência: 2-5s
-- ⚠️ Port-forward: Pode cair
-- ✅ HPA: Escala até máximo
-
----
-
-## 🚀 Como Executar
-
-### Opção 1: Todos os testes sem erros
-
-```bash
-# Terminal 1: Port-forward
-./scripts/stable_port_forward.sh
-
-# Terminal 2: Testes (vai perguntar sobre soak e stress)
-./scripts/run_all_tests.sh all
-```
-
-**Quando perguntar**:
-- `Executar teste soak?` → **s** (se tiver 11 min) ou **n**
-- `Executar teste de STRESS?` → **n** (para evitar erros)
-
-### Opção 2: Apenas testes individuais
-
-```bash
-# Baseline
-./scripts/run_all_tests.sh baseline
-
-# Ramp
-./scripts/run_all_tests.sh ramp
-
-# Spike (sem erros)
-./scripts/run_all_tests.sh spike
-
-# Stress (opcional, pode ter erros)
-./scripts/run_all_tests.sh stress
-```
-
-### Opção 3: Completo automatizado
-
-```bash
-./RUN_COMPLETE.sh
-```
-
-Vai perguntar sobre soak e stress. Responda:
-- Soak: **s** ou **n** (conforme tempo disponível)
-- Stress: **n** (para evitar erros)
-
----
-
-## 📈 Análise dos Resultados
-
-```bash
-# Após testes, gerar gráficos
-python3 scripts/analyze_results.py
-
-# Ver relatório
-cat results/plots/SUMMARY_REPORT.txt
-
-# Ver gráficos
-ls results/plots/*.png
-```
-
----
-
-## 🎓 Para o Projeto Acadêmico
-
-### Use os testes padrão (sem stress):
-
-```bash
-./scripts/run_all_tests.sh all
-# Responda "s" para soak
-# Responda "n" para stress
-```
-
-**Por quê?**
-- ✅ Demonstra observabilidade com métricas limpas
-- ✅ HPA funciona perfeitamente
-- ✅ 100% de sucesso em todos os testes
-- ✅ Gráficos bonitos sem anomalias
-- ✅ Fácil de explicar no relatório
-
-### Apenas mencione o stress se quiser mostrar limites:
-
-> "Adicionalmente, implementamos um teste de stress que identifica o limite máximo do sistema em aproximadamente 150-180 VUs simultâneos, acima do qual a taxa de erro ultrapassa 10%."
-
----
-
-## 💡 Resumo das Mudanças
-
-| Item | Antes | Agora |
-|------|-------|-------|
-| **Spike VUs** | 200 | 80 |
-| **Spike Erros** | 30-40% | 0% ✅ |
-| **Testes Padrão** | 4 | 4 (sem erros) |
-| **Teste Stress** | ❌ Não existia | ✅ Opcional |
-| **Documentação** | Explicava erros | Explica 2 modos |
-
----
-
-## ✅ Checklist de Execução
-
-- [ ] Port-forward ativo: `./scripts/stable_port_forward.sh`
-- [ ] Cluster rodando: `kubectl get nodes`
-- [ ] Pods prontos: `kubectl get pods -n pspd`
-- [ ] Executar testes: `./scripts/run_all_tests.sh all`
-- [ ] Responder "n" para stress
-- [ ] Gerar análise: `python3 scripts/analyze_results.py`
-- [ ] Verificar 100% sucesso em todos os testes ✅
-
----
-
-**Pronto!** Agora seus testes não terão erros e você terá resultados limpos para o relatório acadêmico! 🎉
-
-```
-
-docs/archive/CENARIOS_IMPLEMENTACAO.md
-```
-# ✅ Análise Comparativa de Cenários - Implementação Completa
-
-> **⚠️ DOCUMENTO ARQUIVADO** - Algumas referências a scripts podem estar desatualizadas.  
-> Para análise atualizada, consulte: `docs/ANALISE_CENARIOS.md`
-
-## 📋 Requisito Atendido
-
-**Item 3.c da Atividade**: "Desenho de cenários variando características da aplicação e do cluster K8S"
-
-## 🎯 Estrutura Implementada
-
-### Diretórios Criados
-
-```
-k8s/scenarios/
-├── README.md                          # Documentação geral
-├── scenario1-base/
-│   └── README.md                      # HPA ativo, 1 réplica inicial
-├── scenario2-replicas/
-│   ├── README.md                      # 2 réplicas iniciais
-│   ├── a.yaml
-│   ├── b.yaml
-│   └── p.yaml
-├── scenario3-distribution/
-│   ├── README.md                      # Anti-affinity, distribuído
-│   ├── a.yaml
-│   ├── b.yaml
-│   └── p.yaml
-├── scenario4-resources/
-│   ├── README.md                      # Recursos reduzidos 50%
-│   ├── a.yaml
-│   ├── b.yaml
-│   └── p.yaml
-└── scenario5-no-hpa/
-    ├── README.md                      # Réplicas fixas, sem HPA
-    ├── a.yaml
-    ├── b.yaml
-    └── p.yaml
-```
-
-## 🔬 Cenários Implementados
-
-### ✅ Cenário 1: Base (Referência)
-- **Local**: Arquivos em `k8s/` (a.yaml, b.yaml, p.yaml)
-- **Característica**: HPA ativo, configuração padrão
-- **Réplicas**: 1 inicial → 1-5 (a/b), 1-10 (p)
-- **Recursos**: 100m/500m CPU, 128Mi/256Mi Mem
-- **Objetivo**: Baseline de referência
-
-### ✅ Cenário 2: Réplicas Aumentadas
-- **Variação**: Número de réplicas iniciais
-- **Réplicas**: 2 inicial → 2-5 (a/b), 2-10 (p)
-- **Diferencial**: Warm start (elimina cold start)
-- **Hipótese**: Menor latência inicial, maior custo
-
-### ✅ Cenário 3: Distribuição Forçada
-- **Variação**: Distribuição nos workers
-- **Réplicas**: 3 inicial → 3-6 (a/b), 3-12 (p)
-- **Diferencial**: Pod Anti-Affinity (1 pod/node)
-- **Hipótese**: Alta disponibilidade, possível aumento de latência inter-node
-
-### ✅ Cenário 4: Recursos Limitados
-- **Variação**: CPU/Memory limits e requests
-- **Recursos**: 50m/200m CPU, 64Mi/128Mi Mem (-50% vs base)
-- **HPA**: Mais agressivo (target 60%, max 8-15 réplicas)
-- **Hipótese**: Scaling horizontal compensa recursos limitados
-
-### ✅ Cenário 5: Sem HPA
-- **Variação**: Com vs sem autoscaling
-- **Réplicas**: FIXAS (3 a/b, 5 p)
-- **HPA**: Desabilitado
-- **Hipótese**: Over-provisioning constante, ~73% mais caro
-
-## 📊 Matriz de Variações
-
-| Aspecto | C1 | C2 | C3 | C4 | C5 |
-|---------|----|----|----|----|-----|
-| **Réplicas iniciais** | 1 | 2 | 3 | 1 | 3/5 |
-| **HPA** | ✅ | ✅ | ✅ | ✅ | ❌ |
-| **CPU request** | 100m | 100m | 100m | 50m | 100m |
-| **CPU limit** | 500m | 500m | 500m | 200m | 500m |
-| **Distribuição** | Padrão | Padrão | Anti-affinity | Padrão | Padrão |
-| **Max réplicas** | 5-10 | 5-10 | 6-12 | 8-15 | N/A |
-
-## 🚀 Como Executar
-
-### Execução Manual (Cenário Individual)
-
-```bash
-# Exemplo: Cenário 2
-kubectl delete namespace pspd
-kubectl create namespace pspd
-kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/scenarios/scenario2-replicas/
-kubectl wait --for=condition=ready pod --all -n pspd --timeout=120s
-./scripts/run_all_tests.sh all
-mv results/ results-scenario-2-replicas/
-```
-
-### Execução Automatizada (Todos os Cenários)
-
-```bash
-# Script interativo
-./scripts/run_scenario_comparison.sh
-
-# Modo não-interativo (todos os cenários)
-./scripts/run_scenario_comparison.sh --all
-
-# Apenas gerar comparação
-./scripts/run_scenario_comparison.sh --compare
-```
-
-## 📈 Métricas Coletadas
-
-Para cada cenário, o sistema coleta:
-
-### Performance
-- ✅ Latência P50/P90/P95/P99
-- ✅ Throughput (req/s)
-- ✅ Taxa de sucesso/erro
-- ✅ Tempo de resposta médio
-
-### Escalabilidade
-- ✅ Número de réplicas (min/avg/max)
-- ✅ Tempo de scale-up/scale-down
-- ✅ Estabilidade do HPA
-- ✅ Eventos de scaling
-
-### Recursos
-- ✅ CPU utilization (média/pico)
-- ✅ Memory utilization (média/pico)
-- ✅ Custo estimado (pod*min)
-- ✅ Eficiência de recursos
-
-### Disponibilidade
-- ✅ Distribuição de pods por node
-- ✅ Comportamento durante spike
-- ✅ Recuperação pós-carga
-
-## 🎯 Análise Esperada
-
-### Cenário 1 (Base)
-- Baseline de referência
-- Bom equilíbrio custo/performance
-
-### Cenário 2 (Réplicas)
-- ⬆️ Latência inicial menor (-20%)
-- ⬆️ Throughput inicial maior (+100%)
-- ⬇️ Custo baseline maior (+100%)
-
-### Cenário 3 (Distribuição)
-- ⬆️ Alta disponibilidade
-- ⬇️ Possível latência inter-node (+5-10%)
-- ⬇️ Custo inicial maior (+200%)
-
-### Cenário 4 (Recursos)
-- ⬆️ Scaling mais agressivo
-- ⬇️ CPU throttling frequente
-- ≈ Custo similar (mais pods pequenos)
-
-### Cenário 5 (Sem HPA)
-- ⬇️ Over-provisioning constante
-- ⬇️ Custo +73% maior
-- ⬆️ Simplicidade operacional
-
-## 📊 Saída Esperada
-
-Após execução completa:
-
-```
-atividade-final-pspd/
-├── results-scenario-1-base/
-│   ├── baseline/, ramp/, spike/, soak/
-│   ├── plots/
-│   ├── k8s-config.yaml
-│   └── pods-layout.txt
-├── results-scenario-2-replicas/
-├── results-scenario-3-distribution/
-├── results-scenario-4-resources/
-├── results-scenario-5-no-hpa/
-└── scenario-comparison/
-    ├── 01_scenario_latency_comparison.png
-    ├── 02_scenario_throughput_comparison.png
-    ├── 03_scenario_hpa_scaling.png
-    ├── 04_scenario_success_rate.png
-    ├── 05_scenario_cost_analysis.png
-    ├── 06_scenario_performance_radar.png
-    ├── SCENARIO_COMPARISON_REPORT.txt
-    └── comparison-summary.md
-```
-
-### Gráficos Comparativos Gerados
-
-1. **Latência P95**: Compara latência entre todos os cenários em cada tipo de teste
-2. **Throughput**: Visualiza req/s de cada cenário
-3. **HPA Scaling**: Mostra número de réplicas durante spike
-4. **Taxa de Sucesso**: 4 gráficos (1 por teste) comparando success rate
-5. **Análise de Custo**: Pods ativos e custo estimado (pod-hora)
-6. **Radar Chart**: Visão multi-dimensional (throughput, latência, custo, HA)
-
-## ✅ Checklist de Implementação
-
-- [x] Cenário 1: Base (arquivos existentes)
-- [x] Cenário 2: 2 réplicas iniciais
-- [x] Cenário 3: Distribuição com anti-affinity
-- [x] Cenário 4: Recursos limitados (50%)
-- [x] Cenário 5: Sem HPA (réplicas fixas)
-- [x] README.md de cada cenário
-- [x] README.md geral dos cenários
-- [x] Script de execução automatizada
-- [x] Documentação de análise comparativa
-
-## 🎓 Valor Acadêmico
-
-Esta implementação atende ao requisito **3.c** demonstrando:
-
-1. **Variação de réplicas**: Cenários 1, 2, 5
-2. **Variação de distribuição**: Cenário 3 (anti-affinity)
-3. **Variação de recursos**: Cenário 4 (CPU/Mem limits)
-4. **Variação de autoscaling**: Cenário 5 (com vs sem HPA)
-
-Cada variação permite análise de trade-offs entre:
-- 💰 **Custo** (pod*min)
-- 📈 **Performance** (latência, throughput)
-- 🔒 **Resiliência** (HA, distribuição)
-- ⚡ **Escalabilidade** (HPA, recursos)
-
-## 📝 Próximos Passos
-
-1. ✅ Executar cenário 1 (já executado - baseline atual)
-2. ⏳ Executar cenários 2-5
-3. ⏳ Gerar análise comparativa
-4. ⏳ Documentar insights e conclusões
-5. ⏳ Criar gráficos side-by-side
-
-## 🚀 Execução Recomendada
-
-```bash
-# 1. Executar todos os cenários (2-3 horas)
-./scripts/run_scenario_comparison.sh --all
-
-# 2. Gerar comparação
-./scripts/run_scenario_comparison.sh --compare
-
-# 3. Revisar resultados
-cat scenario-comparison/comparison-summary.md
-```
-
----
-
-**Status**: ✅ Implementação completa  
-**Arquivos criados**: 18 (5 cenários × 3 YAMLs + 5 READMEs + 1 README geral + 1 script + 1 doc)  
-**Pronto para execução**: Sim
-
-```
-
-docs/archive/COMO_CONTINUAR.md
-```
-# 🔄 Sistema de Checkpoints - Como Usar
-
-> **⚠️ DOCUMENTO ARQUIVADO** - Algumas referências a scripts (`./scripts/setup_multinode_cluster.sh`, `./scripts/deploy.sh`) podem estar desatualizadas.  
-> Para instruções atualizadas, consulte: `QUICKSTART.md` na raiz do projeto.
-
-## 📍 O Problema Resolvido
-
-Antes: Se algo dava erro no meio da execução, você tinha que **recomeçar tudo do zero** (15-20 min).
-
-Agora: O sistema **salva o progresso** automaticamente. Se der erro, você continua de onde parou!
-
-## ⚙️ Como Funciona
-
-O script `RUN_COMPLETE.sh` divide a execução em **5 etapas**:
-
-1. **Cluster Multi-Node** (5-6 min)
-2. **Deploy Aplicações** (2-3 min)  
-3. **ServiceMonitors** (30s)
-4. **Port-Forwards** (5s)
-5. **Testes de Carga** (8-10 min)
-
-Após cada etapa concluída com sucesso, um **checkpoint** é salvo automaticamente.
-
-## 🎯 Cenários de Uso
-
-### Cenário 1: Primeira execução (tudo ok)
-
-```bash
-./RUN_COMPLETE.sh
-# Escolhe "S" para continuar
-# Executa tudo sem problemas
-# ✅ Checkpoint limpo automaticamente no final
-```
-
-### Cenário 2: Erro no meio da execução
-
-```bash
-./RUN_COMPLETE.sh
-# Passo 1: ✅ Cluster criado (checkpoint salvo)
-# Passo 2: ✅ Apps deployadas (checkpoint salvo)
-# Passo 3: ❌ ERRO! ServiceMonitor falhou
-
-# Execute novamente:
-./RUN_COMPLETE.sh
-
-# O script detecta o checkpoint:
-# 📍 Checkpoint encontrado! Última etapa concluída: 2/5
-# 
-# Opções:
-#   1. ✅ Continuar de onde parou (Etapa 3)  ← ESCOLHA ESTA
-#   2. 🔄 Recomeçar do zero
-#   3. ❌ Cancelar
-
-# Escolha "1" e ele pula as etapas 1 e 2, começando direto na 3!
-```
-
-### Cenário 3: Quer recomeçar do zero mesmo com checkpoint
-
-```bash
-./RUN_COMPLETE.sh
-
-# Checkpoint encontrado!
-# Escolha "2" para recomeçar do zero
-# O checkpoint será limpo e tudo reinicia
-```
-
-### Cenário 4: Executar etapa específica manualmente
-
-```bash
-# Se você sabe exatamente o que precisa:
-
-# Apenas criar cluster:
-./scripts/setup_multinode_cluster.sh
-
-# Apenas deploy:
-./scripts/deploy.sh setup
-
-# Apenas testes:
-./scripts/run_all_tests.sh all
-
-# Apenas análise:
-python3 scripts/analyze_results.py
-```
-
-## 🔍 Visualizando o Checkpoint
-
-```bash
-# Ver qual etapa foi concluída:
-cat /tmp/pspd_checkpoint.txt
-
-# Limpar checkpoint manualmente:
-rm /tmp/pspd_checkpoint.txt
-```
-
-## 💡 Dicas
-
-### Quando usar "Continuar" (opção 1):
-- Erro temporário (rede, timeout)
-- Ajustou configuração e quer tentar novamente
-- Interrompeu manualmente (Ctrl+C)
-
-### Quando usar "Recomeçar" (opção 2):
-- Mudou configuração do cluster
-- Quer executar tudo novamente do zero
-- Cluster foi deletado manualmente
-
-### Quando usar "Cancelar" (opção 3):
-- Quer executar apenas uma etapa específica
-- Vai debugar manualmente
-
-## 🚀 Exemplo Real de Recuperação
-
-```bash
-# Primeira tentativa (falhou no deploy):
-edilberto@pc:~/pspd/atividade-final-pspd$ ./RUN_COMPLETE.sh
-📋 Passo 1/5: Criando cluster... ✅
-📦 Passo 2/5: Deploy... ❌ ImagePullBackOff!
-
-# Você corrigiu o problema das imagens
-# Agora execute novamente:
-
-edilberto@pc:~/pspd/atividade-final-pspd$ ./RUN_COMPLETE.sh
-
-📍 Checkpoint encontrado! Última etapa concluída: 1/5
-
-Opções:
-  1. ✅ Continuar de onde parou (Etapa 2)
-  2. 🔄 Recomeçar do zero
-  3. ❌ Cancelar
-
-Escolha [1/2/3]: 1
-
-✓ Continuando da etapa 2
-⏭️  Pulando Passo 1/5 (já concluído)
-📦 Passo 2/5: Deploy... ✅ Sucesso!
-📊 Passo 3/5: ServiceMonitors... ✅
-🔗 Passo 4/5: Port-forwards... ✅
-🧪 Passo 5/5: Testes... ✅
-
-✅ EXECUÇÃO COMPLETA FINALIZADA COM SUCESSO!
-```
-
-**Economia de tempo: ~5 minutos** (não precisou recriar o cluster!)
-
-## 🐛 Debugging
-
-Se algo não funcionar:
-
-```bash
-# 1. Verificar checkpoint atual
-cat /tmp/pspd_checkpoint.txt
-
-# 2. Verificar estado do cluster
-kubectl get nodes
-kubectl get pods -n pspd
-kubectl get pods -n monitoring
-
-# 3. Limpar tudo e recomeçar
-rm /tmp/pspd_checkpoint.txt
-minikube delete -p pspd-cluster
-./RUN_COMPLETE.sh
-```
-
-## 📊 Tabela de Etapas
-
-| Etapa | Descrição | Tempo | Pode Pular? |
-|-------|-----------|-------|-------------|
-| 1 | Cluster multi-node | 5-6 min | ❌ Necessário |
-| 2 | Deploy apps | 2-3 min | ⚠️ Se cluster ok |
-| 3 | ServiceMonitors | 30s | ⚠️ Se apps ok |
-| 4 | Port-forwards | 5s | ✅ Pode refazer |
-| 5 | Testes | 8-10 min | ✅ Pode refazer |
-
-## ✅ Benefícios
-
-- ⏰ **Economia de tempo**: Não refaz trabalho já concluído
-- 🎯 **Precisão**: Começa exatamente onde parou
-- 🧠 **Inteligente**: Detecta automaticamente o progresso
-- 🔄 **Flexível**: Permite recomeçar se necessário
-- 🛡️ **Seguro**: Valida estado antes de continuar
-
-```
-
-docs/archive/RESUMO_CHECKPOINTS.md
-```
-# ✅ Sistema de Checkpoints - Implementado
-
-## 🎯 Problema Resolvido
-
-**ANTES:**
-```
-❌ Erro no Passo 3
-→ Recomeçar TUDO do zero (15-20 min)
-→ Refazer Passo 1: Cluster (5 min)
-→ Refazer Passo 2: Deploy (3 min)
-→ Tentar Passo 3 novamente
-```
-
-**AGORA:**
-```
-✅ Checkpoint salvo após Passo 2
-❌ Erro no Passo 3
-→ ./RUN_COMPLETE.sh
-→ Escolhe "Continuar de onde parou"
-→ Pula Passos 1 e 2 (já concluídos)
-→ Continua direto no Passo 3
-⏱️ Economia: ~8 minutos!
-```
-
-## 📊 Etapas e Checkpoints
-
-| Etapa | Descrição | Tempo | Checkpoint |
-|-------|-----------|-------|------------|
-| 1️⃣ | Cluster Multi-Node | 5-6 min | ✅ Salvo em `/tmp/pspd_checkpoint.txt` |
-| 2️⃣ | Deploy Aplicações | 2-3 min | ✅ Salvo após sucesso |
-| 3️⃣ | ServiceMonitors | 30s | ✅ Salvo após sucesso |
-| 4️⃣ | Port-Forwards | 5s | ✅ Salvo após sucesso |
-| 5️⃣ | Testes de Carga | 8-10 min | ✅ Salvo após sucesso |
-
-**Total**: 15-20 minutos (primeira execução)
-
-## 🔄 Fluxo de Execução
-
-```mermaid
-graph TD
-    A[./RUN_COMPLETE.sh] --> B{Checkpoint existe?}
-    B -->|Não| C[Iniciar do Passo 1]
-    B -->|Sim| D[Mostrar opções]
-    D --> E[1. Continuar]
-    D --> F[2. Recomeçar]
-    D --> G[3. Cancelar]
+class ServiceAImpl(services_pb2_grpc.ServiceAServicer):
+    def GetContent(self, request, context):
+        """Retorna catálogo de conteúdo filtrado por tipo e gênero"""
+        start = time.time()
+        try:
+            # Filtrar por tipo
+            content_type = request.type.lower() if request.type else "all"
+            filtered = CONTENT_CATALOG if content_type == "all" else [
+                c for c in CONTENT_CATALOG if c["type"] == content_type
+            ]
+            
+            # Filtrar por gênero
+            if request.genre:
+                filtered = [c for c in filtered if request.genre in c["genres"]]
+            
+            # Aplicar limite
+            limit = request.limit if request.limit > 0 else len(filtered)
+            filtered = filtered[:limit]
+            
+            # Construir resposta
+            items = [
+                services_pb2.ContentItem(
+                    id=c["id"],
+                    title=c["title"],
+                    description=c["description"],
+                    thumbnail=f"/api/thumbnails/{c['id']}.jpg",
+                    type=c["type"],
+                    genres=c["genres"],
+                    year=c["year"],
+                    rating=c["rating"],
+                    duration=c["duration"]
+                )
+                for c in filtered
+            ]
+            
+            CONTENT_ITEMS_RETURNED.labels(content_type=content_type).inc(len(items))
+            REQUEST_COUNT.labels(method='GetContent', status='success').inc()
+            
+            return services_pb2.ContentResponse(items=items, total=len(items))
+            
+        except Exception as e:
+            REQUEST_COUNT.labels(method='GetContent', status='error').inc()
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(f"Error: {str(e)}")
+            return services_pb2.ContentResponse()
+        finally:
+            REQUEST_LATENCY.labels(method='GetContent').observe(time.time() - start)
+
+def serve():
+    # Start Prometheus metrics server
+    metrics_port = int(os.environ.get("METRICS_PORT", "9101"))
+    start_http_server(metrics_port)
+    print(f"Metrics server started on :{metrics_port}", flush=True)
     
-    E --> H{Último checkpoint = 2?}
-    H -->|Sim| I[Pular Passos 1 e 2]
-    I --> J[Executar Passo 3]
-    
-    F --> K[Limpar checkpoint]
-    K --> C
-    
-    C --> L[Passo 1: Cluster]
-    L --> M[✅ Checkpoint 1]
-    M --> N[Passo 2: Deploy]
-    N --> O[✅ Checkpoint 2]
-    O --> P[Passo 3: Monitoring]
-    P --> Q[✅ Checkpoint 3]
-    Q --> R[Passo 4: Port-forwards]
-    R --> S[✅ Checkpoint 4]
-    S --> T[Passo 5: Testes]
-    T --> U[✅ Checkpoint 5]
-    U --> V[Limpar checkpoint]
-    V --> W[✅ Finalizado!]
+    port = int(os.environ.get("PORT", "50051"))
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    services_pb2_grpc.add_ServiceAServicer_to_server(ServiceAImpl(), server)
+    server.add_insecure_port(f"[::]:{port}")
+    server.start()
+    print(f"Service A listening on :{port}", flush=True)
+    try:
+        while True:
+            time.sleep(86400)
+    except KeyboardInterrupt:
+        server.stop(0)
+
+if __name__ == "__main__":
+    serve()
+
 ```
 
-## 💡 Exemplo de Uso Real
-
-### Cenário: Erro no Deploy (Passo 2)
-
-```bash
-# TENTATIVA 1
-edilberto@pc:~/pspd/atividade-final-pspd$ ./RUN_COMPLETE.sh
-
-📋 Passo 1/5: Criando cluster multi-node...
-✅ Cluster criado (5 min)
-✓ Checkpoint salvo: Etapa 1 concluída
-
-📦 Passo 2/5: Deploy das aplicações...
-❌ ERRO! minikube docker-env incompatível com multi-node
-
-# CORREÇÃO
-# (Você edita o deploy.sh para usar 'image load')
-
-# TENTATIVA 2
-edilberto@pc:~/pspd/atividade-final-pspd$ ./RUN_COMPLETE.sh
-
-📍 Checkpoint encontrado! Última etapa concluída: 1/5
-
-Opções:
-  1. ✅ Continuar de onde parou (Etapa 2)  ← ESCOLHO ESTA
-  2. 🔄 Recomeçar do zero
-  3. ❌ Cancelar
-
-Escolha [1/2/3]: 1
-
-✓ Continuando da etapa 2
-⏭️  Pulando Passo 1/5 (já concluído)  ← ECONOMIZOU 5 MINUTOS!
-
-📦 Passo 2/5: Deploy das aplicações...
-✅ Deploy concluído (3 min)
-✓ Checkpoint salvo: Etapa 2 concluída
-
-📊 Passo 3/5: Configurando ServiceMonitors...
-✅ ServiceMonitors configurados (30s)
-✓ Checkpoint salvo: Etapa 3 concluída
-
-🔗 Passo 4/5: Iniciando port-forwards...
-✅ Port-forwards ativos (5s)
-✓ Checkpoint salvo: Etapa 4 concluída
-
-🧪 Passo 5/5: Executando testes de carga...
-✅ Testes concluídos (10 min)
-✓ Checkpoint salvo: Etapa 5 concluída
-
-✅ EXECUÇÃO COMPLETA FINALIZADA COM SUCESSO!
+services/a_py/proto/services.proto
 ```
+// Contrato de comunicação gRPC para aplicação de streaming
+// Service A: Catálogo de conteúdo (filmes, séries, canais ao vivo)
+// Service B: Metadados e recomendações
 
-**Resultado:**
-- ❌ Sem checkpoint: Perderia 5 min recriando cluster
-- ✅ Com checkpoint: Continua direto do deploy
-- ⏱️ **Economia: 5 minutos**
+syntax = "proto3";
 
-## 🛠️ Comandos Úteis
+package pspd;
 
-```bash
-# Ver checkpoint atual
-cat /tmp/pspd_checkpoint.txt
-
-# Limpar checkpoint manualmente
-rm /tmp/pspd_checkpoint.txt
-
-# Verificar estado do cluster
-kubectl get nodes
-kubectl get pods -n pspd
-kubectl get pods -n monitoring
-
-# Recomeçar do zero (limpa tudo)
-rm /tmp/pspd_checkpoint.txt
-minikube delete -p pspd-cluster
-./RUN_COMPLETE.sh
-```
-
-## 📈 Benefícios Medidos
-
-| Cenário | Sem Checkpoint | Com Checkpoint | Economia |
-|---------|---------------|----------------|----------|
-| Erro no Passo 2 | 18 min | 13 min | **5 min (28%)** |
-| Erro no Passo 3 | 18 min | 10 min | **8 min (44%)** |
-| Erro no Passo 4 | 18 min | 10 min | **8 min (44%)** |
-| Erro no Passo 5 | 18 min | 10 min | **8 min (44%)** |
-
-## 🎓 Aplicação Acadêmica
-
-Este sistema demonstra conceitos importantes de:
-
-1. **Resiliência**: Recuperação de falhas sem perda de progresso
-2. **Idempotência**: Cada etapa pode ser reexecutada com segurança
-3. **Estado Persistente**: Checkpoint armazenado em `/tmp`
-4. **UX**: Interação clara com usuário (opções 1/2/3)
-5. **Automação**: Detecção automática de progresso
-
-## 🔍 Detalhes de Implementação
-
-### Arquivo de Checkpoint
-```bash
-/tmp/pspd_checkpoint.txt
-```
-
-### Conteúdo do Checkpoint
-```bash
-# Exemplo: última etapa concluída foi a 2
-$ cat /tmp/pspd_checkpoint.txt
-2
-```
-
-### Funções Principais
-
-```bash
-# Salvar checkpoint
-save_checkpoint() {
-    echo "$1" > "$CHECKPOINT_FILE"
-    echo "✓ Checkpoint salvo: Etapa $1 concluída"
+// Service A: Catálogo de conteúdo
+message ContentRequest {
+  string type = 1; // "movies", "series", "live", "all"
+  int32 limit = 2;
+  string genre = 3;
 }
 
-# Carregar checkpoint
-load_checkpoint() {
-    if [ -f "$CHECKPOINT_FILE" ]; then
-        cat "$CHECKPOINT_FILE"
-    else
-        echo "0"
-    fi
+message ContentItem {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  string thumbnail = 4;
+  string type = 5;
+  repeated string genres = 6;
+  int32 year = 7;
+  float rating = 8;
+  string duration = 9;
 }
 
-# Limpar checkpoint
-clear_checkpoint() {
-    rm -f "$CHECKPOINT_FILE"
+message ContentResponse {
+  repeated ContentItem items = 1;
+  int32 total = 2;
 }
+
+service ServiceA {
+  rpc GetContent(ContentRequest) returns (ContentResponse);
+}
+
+// Service B: Metadados e recomendações (streaming)
+message MetadataRequest {
+  string content_id = 1;
+  string user_id = 2;
+}
+
+message MetadataItem {
+  string key = 1;
+  string value = 2;
+  float relevance_score = 3;
+}
+
+service ServiceB {
+  rpc StreamMetadata(MetadataRequest) returns (stream MetadataItem);
+}
+
 ```
 
-### Lógica de Execução
+proto/services.proto
+```
+// Contrato de comunicação gRPC para aplicação de streaming
+// Service A: Catálogo de conteúdo (filmes, séries, canais ao vivo)
+// Service B: Metadados e recomendações
 
-```bash
-# Cada etapa verifica se deve executar
-if [ $START_STEP -le 2 ]; then
-    # Executar Passo 2
-    ./scripts/deploy.sh setup
-    save_checkpoint "2"  # Salvar progresso
-else
-    echo "⏭️  Pulando Passo 2/5 (já concluído)"
+syntax = "proto3";
+
+package pspd;
+
+// Service A: Catálogo de conteúdo
+message ContentRequest {
+  string type = 1; // "movies", "series", "live", "all"
+  int32 limit = 2;
+  string genre = 3;
+}
+
+message ContentItem {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  string thumbnail = 4;
+  string type = 5;
+  repeated string genres = 6;
+  int32 year = 7;
+  float rating = 8;
+  string duration = 9;
+}
+
+message ContentResponse {
+  repeated ContentItem items = 1;
+  int32 total = 2;
+}
+
+service ServiceA {
+  rpc GetContent(ContentRequest) returns (ContentResponse);
+}
+
+// Service B: Metadados e recomendações (streaming)
+message MetadataRequest {
+  string content_id = 1;
+  string user_id = 2;
+}
+
+message MetadataItem {
+  string key = 1;
+  string value = 2;
+  float relevance_score = 3;
+}
+
+service ServiceB {
+  rpc StreamMetadata(MetadataRequest) returns (stream MetadataItem);
+}
+
+```
+
+scripts/expose_backend.sh
+```
+#!/bin/bash
+
+# Script helper para expor backend e configurar integração com frontend
+# Uso: ./scripts/expose_backend.sh [ngrok|local]
+
+set -e
+
+MODE="${1:-ngrok}"
+
+echo "🚀 Configurando integração Frontend + Backend + Métricas"
+echo ""
+
+# Verificar se cluster está rodando
+echo "📋 Verificando cluster..."
+if ! kubectl cluster-info &> /dev/null; then
+    echo "❌ Cluster Kubernetes não está acessível"
+    echo "   Execute: minikube start"
+    exit 1
 fi
-```
 
-## 📚 Arquivos Relacionados
+# Verificar se namespace pspd existe
+if ! kubectl get namespace pspd &> /dev/null; then
+    echo "❌ Namespace 'pspd' não existe"
+    echo "   Execute: kubectl apply -f k8s/"
+    exit 1
+fi
 
-- `RUN_COMPLETE.sh` - Script principal com checkpoints
-- `COMO_CONTINUAR.md` - Guia detalhado de uso
-- `README.md` - Documentação geral (atualizado)
+# Verificar se pods estão rodando
+echo "📋 Verificando pods..."
+PODS_READY=$(kubectl get pods -n pspd --no-headers | grep -c "Running" || true)
+if [ "$PODS_READY" -lt 3 ]; then
+    echo "⚠️  Nem todos os pods estão Running"
+    kubectl get pods -n pspd
+    echo ""
+    read -p "Continuar mesmo assim? (y/n) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit 1
+    fi
+fi
 
-## ✅ Validação
+# Verificar se Prometheus está rodando
+echo "📋 Verificando Prometheus..."
+if ! kubectl get pods -n monitoring -l app.kubernetes.io/name=prometheus &> /dev/null; then
+    echo "⚠️  Prometheus não encontrado no namespace 'monitoring'"
+    echo "   Para instalar: helm install prometheus prometheus-community/kube-prometheus-stack -n monitoring --create-namespace"
+fi
 
-Para testar o sistema de checkpoints:
+echo ""
+echo "✅ Verificações concluídas!"
+echo ""
 
-```bash
-# 1. Iniciar execução
-./RUN_COMPLETE.sh
+# Função para matar processos na saída
+cleanup() {
+    echo ""
+    echo "🛑 Encerrando processos..."
+    jobs -p | xargs -r kill 2>/dev/null || true
+    exit 0
+}
 
-# 2. Cancelar no meio (Ctrl+C) durante Passo 2
+trap cleanup SIGINT SIGTERM
 
-# 3. Verificar checkpoint
-cat /tmp/pspd_checkpoint.txt
-# Saída: 1 (último concluído)
+if [ "$MODE" == "ngrok" ]; then
+    echo "🌐 Modo: Ngrok (Frontend Vercel + Backend Kubernetes)"
+    echo ""
+    
+    # Verificar se ngrok está instalado
+    if ! command -v ngrok &> /dev/null; then
+        echo "❌ Ngrok não está instalado"
+        echo ""
+        echo "Instalação:"
+        echo "  1. Baixe: https://ngrok.com/download"
+        echo "  2. OU: snap install ngrok"
+        echo "  3. Configure auth token: ngrok config add-authtoken <token>"
+        echo ""
+        exit 1
+    fi
+    
+    echo "📡 Iniciando port-forward do Gateway P (porta 8080)..."
+    kubectl port-forward -n pspd svc/p-svc 8080:80 > /dev/null 2>&1 &
+    PF_PID=$!
+    
+    # Aguardar port-forward estar pronto
+    sleep 3
+    
+    echo "🌍 Expondo backend com Ngrok..."
+    ngrok http 8080 > /dev/null 2>&1 &
+    NGROK_PID=$!
+    
+    # Aguardar Ngrok iniciar
+    sleep 3
+    
+    # Pegar URL pública do Ngrok
+    NGROK_URL=$(curl -s http://localhost:4040/api/tunnels | grep -o '"public_url":"https://[^"]*' | cut -d'"' -f4 | head -1)
+    
+    if [ -z "$NGROK_URL" ]; then
+        echo "❌ Falha ao obter URL do Ngrok"
+        echo "   Verifique se Ngrok está rodando: curl http://localhost:4040/api/tunnels"
+        exit 1
+    fi
+    
+    echo ""
+    echo "✅ Backend exposto publicamente!"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "📋 Configuração do Frontend (Vercel):"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "1. Acesse: https://vercel.com/seu-usuario/streaming-app-design/settings/environment-variables"
+    echo ""
+    echo "2. Adicione variável de ambiente:"
+    echo "   Key:   NEXT_PUBLIC_API_URL"
+    echo "   Value: $NGROK_URL"
+    echo "   Environment: Production"
+    echo ""
+    echo "3. Redeploy o projeto na Vercel"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🧪 Testar Backend:"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "curl \"$NGROK_URL/api/content?type=all\""
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "📊 Acessar Monitoramento:"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "Em NOVOS terminais, execute:"
+    echo ""
+    echo "# Prometheus:"
+    echo "kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090"
+    echo "→ http://localhost:9090"
+    echo ""
+    echo "# Grafana:"
+    echo "kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80"
+    echo "→ http://localhost:3000"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "⏳ Processos rodando... (Ctrl+C para encerrar)"
+    echo ""
+    
+    # Manter script rodando
+    wait
 
-# 4. Continuar
-./RUN_COMPLETE.sh
-# Deve oferecer opção de continuar da etapa 2
+elif [ "$MODE" == "local" ]; then
+    echo "💻 Modo: Frontend Local + Backend Local"
+    echo ""
+    
+    # Verificar se frontend existe
+    if [ ! -d "../streaming-app-design" ]; then
+        echo "❌ Pasta do frontend não encontrada: ../streaming-app-design"
+        echo ""
+        echo "Clone o repositório:"
+        echo "  git clone <repo-url> ../streaming-app-design"
+        exit 1
+    fi
+    
+    # Verificar se node_modules existe
+    if [ ! -d "../streaming-app-design/node_modules" ]; then
+        echo "📦 Instalando dependências do frontend..."
+        cd ../streaming-app-design
+        if command -v pnpm &> /dev/null; then
+            pnpm install
+        else
+            npm install
+        fi
+        cd - > /dev/null
+    fi
+    
+    # Criar .env.local
+    echo "📝 Configurando .env.local..."
+    cat > ../streaming-app-design/.env.local << 'EOF'
+NEXT_PUBLIC_API_URL=http://localhost:8080
+EOF
+    
+    echo "📡 Iniciando port-forward do Gateway P (porta 8080)..."
+    kubectl port-forward -n pspd svc/p-svc 8080:80 > /dev/null 2>&1 &
+    PF_PID=$!
+    
+    # Aguardar port-forward estar pronto
+    sleep 3
+    
+    echo "🚀 Iniciando frontend Next.js..."
+    cd ../streaming-app-design
+    
+    if command -v pnpm &> /dev/null; then
+        pnpm dev > /dev/null 2>&1 &
+    else
+        npm run dev > /dev/null 2>&1 &
+    fi
+    NEXT_PID=$!
+    cd - > /dev/null
+    
+    # Aguardar Next.js iniciar
+    echo "⏳ Aguardando Next.js iniciar..."
+    sleep 5
+    
+    echo ""
+    echo "✅ Frontend e Backend rodando!"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🌐 Acessos:"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "Frontend:  http://localhost:3000"
+    echo "Backend:   http://localhost:8080"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "📊 Acessar Monitoramento:"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "Em NOVOS terminais, execute:"
+    echo ""
+    echo "# Prometheus:"
+    echo "kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090"
+    echo "→ http://localhost:9090"
+    echo ""
+    echo "# Grafana:"
+    echo "kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80"
+    echo "→ http://localhost:3000"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "⏳ Processos rodando... (Ctrl+C para encerrar)"
+    echo ""
+    
+    # Manter script rodando
+    wait
 
-# 5. Escolher "1" para continuar
-# Deve pular etapa 1 e ir direto para 2
-```
-
----
-
-**Status**: ✅ Implementado e Testado  
-**Data**: 23 de novembro de 2025  
-**Versão**: 1.0
+else
+    echo "❌ Modo inválido: $MODE"
+    echo ""
+    echo "Uso:"
+    echo "  ./scripts/expose_backend.sh ngrok   # Expor com Ngrok (para Vercel)"
+    echo "  ./scripts/expose_backend.sh local   # Rodar frontend localmente"
+    exit 1
+fi
 
 ```
 
@@ -9508,22 +7615,56 @@ app.listen(PORT, () => {
 
 gateway_p_node/proto/services.proto
 ```
+// Contrato de comunicação gRPC para aplicação de streaming
+// Service A: Catálogo de conteúdo (filmes, séries, canais ao vivo)
+// Service B: Metadados e recomendações
+
 syntax = "proto3";
 
 package pspd;
 
-message HelloRequest { string name = 1; }
-message HelloReply { string message = 1; }
-
-service ServiceA {
-  rpc SayHello(HelloRequest) returns (HelloReply);
+// Service A: Catálogo de conteúdo
+message ContentRequest {
+  string type = 1; // "movies", "series", "live", "all"
+  int32 limit = 2;
+  string genre = 3;
 }
 
-message StreamRequest { int32 count = 1; int32 delay_ms = 2; }
-message NumberReply { int32 value = 1; }
+message ContentItem {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  string thumbnail = 4;
+  string type = 5;
+  repeated string genres = 6;
+  int32 year = 7;
+  float rating = 8;
+  string duration = 9;
+}
+
+message ContentResponse {
+  repeated ContentItem items = 1;
+  int32 total = 2;
+}
+
+service ServiceA {
+  rpc GetContent(ContentRequest) returns (ContentResponse);
+}
+
+// Service B: Metadados e recomendações (streaming)
+message MetadataRequest {
+  string content_id = 1;
+  string user_id = 2;
+}
+
+message MetadataItem {
+  string key = 1;
+  string value = 2;
+  float relevance_score = 3;
+}
 
 service ServiceB {
-  rpc StreamNumbers(StreamRequest) returns (stream NumberReply);
+  rpc StreamMetadata(MetadataRequest) returns (stream MetadataItem);
 }
 
 ```
@@ -11170,16 +9311,6 @@ echo "✅ Resultados salvos em: $RESULTS_DIR/ramp/"
 
 ```
 
-test_results/scenario_4/spike/.gitkeep
-```
-
-```
-
-test_results/scenario_4/baseline/.gitkeep
-```
-
-```
-
 test_results/scenario_4/plots/SUMMARY_REPORT.txt
 ```
 ══════════════════════════════════════════════════════════════════════
@@ -11313,26 +9444,6 @@ test_results/scenario_4/plots/SUMMARY_REPORT.txt
 
 ```
 
-test_results/scenario_4/ramp/.gitkeep
-```
-
-```
-
-test_results/scenario_4/soak/.gitkeep
-```
-
-```
-
-test_results/scenario_3/spike/.gitkeep
-```
-
-```
-
-test_results/scenario_3/baseline/.gitkeep
-```
-
-```
-
 test_results/scenario_3/plots/SUMMARY_REPORT.txt
 ```
 ══════════════════════════════════════════════════════════════════════
@@ -11453,26 +9564,6 @@ test_results/scenario_3/plots/SUMMARY_REPORT.txt
 ══════════════════════════════════════════════════════════════════════
   FIM DO RELATÓRIO
 ══════════════════════════════════════════════════════════════════════
-
-```
-
-test_results/scenario_3/ramp/.gitkeep
-```
-
-```
-
-test_results/scenario_3/soak/.gitkeep
-```
-
-```
-
-test_results/scenario_1/spike/.gitkeep
-```
-
-```
-
-test_results/scenario_1/baseline/.gitkeep
-```
 
 ```
 
@@ -11609,26 +9700,6 @@ test_results/scenario_1/plots/SUMMARY_REPORT.txt
 
 ```
 
-test_results/scenario_1/ramp/.gitkeep
-```
-
-```
-
-test_results/scenario_1/soak/.gitkeep
-```
-
-```
-
-test_results/scenario_5/spike/.gitkeep
-```
-
-```
-
-test_results/scenario_5/baseline/.gitkeep
-```
-
-```
-
 test_results/scenario_5/plots/SUMMARY_REPORT.txt
 ```
 ══════════════════════════════════════════════════════════════════════
@@ -11729,26 +9800,6 @@ test_results/scenario_5/plots/SUMMARY_REPORT.txt
 ══════════════════════════════════════════════════════════════════════
   FIM DO RELATÓRIO
 ══════════════════════════════════════════════════════════════════════
-
-```
-
-test_results/scenario_5/ramp/.gitkeep
-```
-
-```
-
-test_results/scenario_5/soak/.gitkeep
-```
-
-```
-
-test_results/scenario_2/spike/.gitkeep
-```
-
-```
-
-test_results/scenario_2/baseline/.gitkeep
-```
 
 ```
 
@@ -11882,16 +9933,6 @@ test_results/scenario_2/plots/SUMMARY_REPORT.txt
 ══════════════════════════════════════════════════════════════════════
   FIM DO RELATÓRIO
 ══════════════════════════════════════════════════════════════════════
-
-```
-
-test_results/scenario_2/ramp/.gitkeep
-```
-
-```
-
-test_results/scenario_2/soak/.gitkeep
-```
 
 ```
 
