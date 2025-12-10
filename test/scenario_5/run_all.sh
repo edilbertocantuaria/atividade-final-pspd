@@ -8,15 +8,16 @@ RESULTS_DIR="$PROJECT_ROOT/test_results/scenario_5"
 echo "🚀 SCENARIO 5: No HPA (5 fixed replicas, no autoscaling)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
+# Executar setup uma única vez antes dos testes
+echo ""
+echo "📋 Executando setup do cenário..."
+bash "$SCRIPT_DIR/00_setup.sh" || { echo "❌ Setup falhou"; exit 1; }
+
 # Array com os testes a executar
 TESTS=("baseline" "ramp" "spike" "soak")
 
-# Executar cada teste com setup antes
+# Executar cada teste
 for test in "${TESTS[@]}"; do
-    echo ""
-    echo "📋 Executando setup para teste: $test"
-    bash "$SCRIPT_DIR/00_setup.sh" || { echo "❌ Setup falhou para $test"; exit 1; }
-    
     echo ""
     echo "🧪 Executando teste: $test"
     bash "$SCRIPT_DIR/${test}.sh" || { echo "⚠️  Teste $test falhou"; }

@@ -29,27 +29,37 @@ for scenario in "${SCENARIOS[@]}"; do
     echo "╰────────────────────────────────────────────────────────────────╯"
     echo ""
     
-    if [ -f "$SCENARIO_DIR/run_all.sh" ]; then
+    if [ -f "$SCENARIO_DIR/00_setup.sh" ] && [ -f "$SCENARIO_DIR/run_all.sh" ]; then
         SCENARIO_START=$(date +%s)
         
-        # Executar run_all.sh do cenário
-        bash "$SCENARIO_DIR/run_all.sh"
-        EXIT_CODE=$?
+        # Executar setup do cenário uma vez
+        echo "📋 Executando setup do cenário $scenario..."
+        bash "$SCENARIO_DIR/00_setup.sh"
+        SETUP_EXIT=$?
         
-        SCENARIO_END=$(date +%s)
-        SCENARIO_DURATION=$((SCENARIO_END - SCENARIO_START))
-        
-        if [ $EXIT_CODE -eq 0 ]; then
-            echo ""
-            echo "✅ Cenário $scenario concluído com sucesso em ${SCENARIO_DURATION}s"
-            ((SUCCESS_COUNT++))
-        else
-            echo ""
-            echo "❌ Cenário $scenario falhou (exit code: $EXIT_CODE)"
+        if [ $SETUP_EXIT -ne 0 ]; then
+            echo "❌ Setup do cenário $scenario falhou"
             FAILED_SCENARIOS+=($scenario)
+        else
+            # Executar run_all.sh do cenário (sem setup interno)
+            bash "$SCENARIO_DIR/run_all.sh"
+            EXIT_CODE=$?
+            
+            SCENARIO_END=$(date +%s)
+            SCENARIO_DURATION=$((SCENARIO_END - SCENARIO_START))
+            
+            if [ $EXIT_CODE -eq 0 ]; then
+                echo ""
+                echo "✅ Cenário $scenario concluído com sucesso em ${SCENARIO_DURATION}s"
+                ((SUCCESS_COUNT++))
+            else
+                echo ""
+                echo "❌ Cenário $scenario falhou (exit code: $EXIT_CODE)"
+                FAILED_SCENARIOS+=($scenario)
+            fi
         fi
     else
-        echo "⚠️  Arquivo run_all.sh não encontrado em $SCENARIO_DIR"
+        echo "⚠️  Arquivos necessários não encontrados em $SCENARIO_DIR"
         FAILED_SCENARIOS+=($scenario)
     fi
     
